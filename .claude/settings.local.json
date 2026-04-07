@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(rm -rf \"c:/Users/satui/OneDrive/Desktop/JEZREEN/thesis/rtms/client\")",
+      "Bash(npm create:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(taskkill //F //FI 'WINDOWTITLE eq tsx*')",
+      "Bash(lsof -ti:3001)",
+      "Bash(xargs kill:*)",
+      "Bash(find c:/Users/satui/OneDrive/Desktop/JEZREEN/thesis/rtms/shared/src/types -type f -name *.ts)",
+      "Bash(psql -U postgres -c \"SELECT version\\(\\);\")",
+      "Bash(where psql:*)",
+      "Read(//c/Program Files/PostgreSQL//**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"SELECT 1;\")",
+      "Bash(PGPASSWORD=\"pao122002\" \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"SELECT 1 AS connected;\")",
+      "Bash(PGPASSWORD=\"postgres122002\" \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"SELECT 1 AS connected;\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(net stop:*)",
+      "Bash(net start:*)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"ALTER USER postgres WITH PASSWORD ''postgres122002'';\")",
+      "Bash(PGPASSWORD=\"postgres122002\" \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"CREATE DATABASE rtms;\")",
+      "Bash(npm uninstall:*)",
+      "Bash(npx prisma:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

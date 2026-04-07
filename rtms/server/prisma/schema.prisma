@@ -1,0 +1,89 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         String
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  preparedTransactions Transaction[] @relation("PreparedBy")
+  reviewedTransactions Transaction[] @relation("ReviewedBy")
+  auditLogs            AuditLog[]
+}
+
+model Student {
+  id        String   @id @default(uuid())
+  name      String
+  course    String
+  yearLevel Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@index([name])
+}
+
+model Transaction {
+  id               String    @id @default(uuid())
+  studentId        String
+  student          Student   @relation(fields: [studentId], references: [id])
+  studentName      String
+  studentCourse    String
+  studentYearLevel Int
+  docCOR           Int       @default(0)
+  docCOG           Int       @default(0)
+  docCMC           Int       @default(0)
+  docAUTH          Int       @default(0)
+  docOTR           Int       @default(0)
+  others           String    @default("")
+  othersCount      Int       @default(0)
+  status           String    @default("Processing")
+  preparedBy       String
+  preparedByUser   User      @relation("PreparedBy", fields: [preparedBy], references: [id])
+  preparedByName   String
+  preparedAt       DateTime
+  reviewedBy       String?
+  reviewedByUser   User?     @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+  reviewedByName   String?
+  reviewedAt       DateTime?
+  duration         Int?
+  releasedTo       String?
+  signature        String?
+  releasedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@index([preparedBy])
+  @@index([preparedAt])
+}
+
+model AuditLog {
+  id              String      @id @default(uuid())
+  transactionId   String
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+  action          String
+  previousStatus  String?
+  newStatus       String
+  performedBy     String
+  performedByUser User        @relation(fields: [performedBy], references: [id])
+  performedByName String
+  timestamp       DateTime    @default(now())
+
+  @@index([transactionId])
+  @@index([timestamp(sort: Desc)])
+}
