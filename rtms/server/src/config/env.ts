@@ -12,3 +12,14 @@ export const env = {
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
   NODE_ENV: process.env.NODE_ENV || 'development',
 };
+
+if (env.NODE_ENV === 'production') {
+  if (
+    !process.env.JWT_SECRET ||
+    process.env.JWT_SECRET.length < 32 ||
+    process.env.JWT_SECRET === 'rtms-thesis-jwt-secret-bu-polangui-2026' ||
+    process.env.JWT_SECRET === 'dev-secret-change-me'
+  ) {
+    throw new Error('JWT_SECRET must be set to a strong secret (32+ chars) in production');
+  }
+}
