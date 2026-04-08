@@ -52,7 +52,7 @@ export function AddStudentDialog({ open, onClose, onCreated }: Props) {
               value={course}
               onChange={(e) => setCourse(e.target.value)}
             >
-              {COURSES.map((c) => (
+              {COURSES.map((c: string) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -64,7 +64,7 @@ export function AddStudentDialog({ open, onClose, onCreated }: Props) {
               value={yearLevel}
               onChange={(e) => setYearLevel(Number(e.target.value))}
             >
-              {YEAR_LEVELS.map((y) => (
+              {YEAR_LEVELS.map((y: number) => (
                 <option key={y} value={y}>Year {y}</option>
               ))}
             </select>

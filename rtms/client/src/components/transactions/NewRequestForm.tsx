@@ -18,7 +18,7 @@ export function NewRequestForm({ onCreated }: Props) {
   const { user } = useAuth();
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [docs, setDocs] = useState<Record<string, number>>(
-    Object.fromEntries(DOCUMENT_TYPES.map((d) => [d, 0]))
+    Object.fromEntries(DOCUMENT_TYPES.map((d: string) => [d, 0]))
   );
   const [others, setOthers] = useState('');
   const [othersCount, setOthersCount] = useState(0);
@@ -48,7 +48,7 @@ export function NewRequestForm({ onCreated }: Props) {
       });
       // Reset form
       setSelectedStudent(null);
-      setDocs(Object.fromEntries(DOCUMENT_TYPES.map((d) => [d, 0])));
+      setDocs(Object.fromEntries(DOCUMENT_TYPES.map((d: string) => [d, 0])));
       setOthers('');
       setOthersCount(0);
       onCreated();
@@ -102,7 +102,7 @@ export function NewRequestForm({ onCreated }: Props) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Requested Documents/Services</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {DOCUMENT_TYPES.map((type) => (
+                {DOCUMENT_TYPES.map((type: string) => (
                   <DocumentCounter
                     key={type}
                     label={type}

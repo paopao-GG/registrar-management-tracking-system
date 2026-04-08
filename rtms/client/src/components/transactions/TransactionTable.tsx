@@ -67,8 +67,8 @@ export function TransactionTable({ transactions, onSign, onRelease, showActions 
         <tbody>
           {transactions.map((t) => {
             const docSummary = DOCUMENT_TYPES
-              .filter((d) => t.requestedDocuments[d] > 0)
-              .map((d) => `${d}(${t.requestedDocuments[d]})`)
+              .filter((d: string) => t.requestedDocuments[d] > 0)
+              .map((d: string) => `${d}(${t.requestedDocuments[d]})`)
               .join(', ');
             const othersSummary = t.othersCount > 0 ? `Others: ${t.others}(${t.othersCount})` : '';
             const fullSummary = [docSummary, othersSummary].filter(Boolean).join(', ');
