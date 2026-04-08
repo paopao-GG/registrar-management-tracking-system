@@ -10,7 +10,7 @@ import { reportRoutes } from './routes/report.routes.js';
 import { userRoutes } from './routes/user.routes.js';
 import { auditRoutes } from './routes/audit.routes.js';
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, trustProxy: true });
 
 async function start() {
   const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
