@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 export function useInactivityTimeout(onTimeout: () => void, timeoutMs = 30 * 60 * 1000) {
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     const resetTimer = () => {

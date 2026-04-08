@@ -13,7 +13,7 @@ interface Props {
 
 export function AddStudentDialog({ open, onClose, onCreated }: Props) {
   const [name, setName] = useState('');
-  const [course, setCourse] = useState(COURSES[0]);
+  const [course, setCourse] = useState<string>(COURSES[0]);
   const [yearLevel, setYearLevel] = useState(1);
   const [loading, setLoading] = useState(false);
 
