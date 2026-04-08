@@ -23,7 +23,7 @@ export async function reportRoutes(app: FastifyInstance) {
     const report = await generateReport(parsed.data.startDate, parsed.data.endDate);
 
     if (query.format === 'csv') {
-      const csvRows = report.rows.map((row) => ({
+      const csvRows = report.rows.map((row: any) => ({
         'External Client Name': row.clientName,
         'Service Availed': row.serviceAvailed,
         'Day of Service Completion': row.completionDate,

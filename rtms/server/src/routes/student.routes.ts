@@ -14,7 +14,7 @@ export async function studentRoutes(app: FastifyInstance) {
       take: 10,
       orderBy: { name: 'asc' },
     });
-    return students.map((s) => ({ ...s, _id: s.id }));
+    return students.map((s: any) => ({ ...s, _id: s.id }));
   });
 
   app.post('/api/students', async (request, reply) => {

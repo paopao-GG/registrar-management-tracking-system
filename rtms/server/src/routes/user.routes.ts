@@ -14,7 +14,7 @@ export async function userRoutes(app: FastifyInstance) {
       select: { id: true, name: true, username: true, role: true, status: true, createdAt: true, updatedAt: true },
       orderBy: { name: 'asc' },
     });
-    return users.map((u) => ({ ...u, _id: u.id }));
+    return users.map((u: any) => ({ ...u, _id: u.id }));
   });
 
   app.post('/api/users', async (request, reply) => {

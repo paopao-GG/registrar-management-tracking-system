@@ -22,7 +22,7 @@ export async function generateReport(startDate: string, endDate: string) {
     OTR: 'docOTR',
   };
 
-  const rows = transactions.map((t) => {
+  const rows = transactions.map((t: any) => {
     const services: string[] = [];
     for (const docType of DOCUMENT_TYPES) {
       const key = docKeyMap[docType] as keyof typeof t;
