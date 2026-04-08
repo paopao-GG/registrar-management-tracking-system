@@ -13,7 +13,16 @@ import { auditRoutes } from './routes/audit.routes.js';
 const app = Fastify({ logger: true });
 
 async function start() {
-  await app.register(cors, { origin: env.CORS_ORIGIN });
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
+  await app.register(cors, {
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Not allowed by CORS'), false);
+      }
+    },
+  });
 
   // Rate limit only on auth routes (login)
   await app.register(async function publicRoutes(instance) {
