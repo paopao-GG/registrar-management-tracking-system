@@ -67,7 +67,7 @@ export function NewRequestForm({ onCreated }: Props) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Date</label>
                 <Input value={formatDate(new Date())} disabled />
@@ -87,7 +87,7 @@ export function NewRequestForm({ onCreated }: Props) {
             </div>
 
             {selectedStudent && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Program</label>
                   <Input value={selectedStudent.course} disabled />
@@ -113,7 +113,7 @@ export function NewRequestForm({ onCreated }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Others</label>
                 <Input

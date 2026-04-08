@@ -52,7 +52,7 @@ export function TransactionTable({ transactions, onSign, onRelease, showActions 
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50">
-            <th className="px-3 py-2 text-left font-medium">Date</th>
+            <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Date</th>
             <th className="px-3 py-2 text-left font-medium">Student</th>
             <th className="px-3 py-2 text-left font-medium">Program</th>
             <th className="px-3 py-2 text-left font-medium">Requested Documents/Services</th>

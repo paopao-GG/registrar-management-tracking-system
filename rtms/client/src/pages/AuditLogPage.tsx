@@ -34,11 +34,11 @@ export function AuditLogPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Audit Log</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Audit Log</h2>
 
       <Card>
         <CardHeader>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">Start Date</label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -50,15 +50,16 @@ export function AuditLogPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-3 py-2 text-left font-medium">Timestamp</th>
-                <th className="px-3 py-2 text-left font-medium">Transaction ID</th>
-                <th className="px-3 py-2 text-left font-medium">Action</th>
-                <th className="px-3 py-2 text-left font-medium">Previous Status</th>
-                <th className="px-3 py-2 text-left font-medium">New Status</th>
-                <th className="px-3 py-2 text-left font-medium">Performed By</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Timestamp</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Transaction ID</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Action</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Previous Status</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">New Status</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Performed By</th>
               </tr>
             </thead>
             <tbody>
@@ -83,6 +84,7 @@ export function AuditLogPage() {
               )}
             </tbody>
           </table>
+          </div>
         </CardContent>
       </Card>
     </div>

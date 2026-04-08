@@ -84,11 +84,11 @@ export function StaffDashboard() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Staff Dashboard</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Staff Dashboard</h2>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Loader className="h-8 w-8 text-blue-500" />
@@ -99,7 +99,7 @@ export function StaffDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <FileText className="h-8 w-8 text-orange-500" />
@@ -110,7 +110,7 @@ export function StaffDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <CheckCircle className="h-8 w-8 text-green-500" />
@@ -121,7 +121,7 @@ export function StaffDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-blue-500" />
@@ -138,10 +138,10 @@ export function StaffDashboard() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle className="text-lg">Today's Requests</CardTitle>
             <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-auto"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -163,10 +163,10 @@ export function StaffDashboard() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle className="text-lg">Incomplete / Unclaimed Documents</CardTitle>
             <Input
-              className="max-w-xs"
+              className="w-full sm:max-w-xs"
               placeholder="Search by student name..."
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}

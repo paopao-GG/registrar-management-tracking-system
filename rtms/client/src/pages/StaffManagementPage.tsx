@@ -66,13 +66,14 @@ export function StaffManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Staff Management</h2>
-        <Button onClick={() => setAddOpen(true)}>Add Staff</Button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 className="text-2xl font-bold tracking-tight">Staff Management</h2>
+        <Button onClick={() => setAddOpen(true)} className="w-full sm:w-auto">Add Staff</Button>
       </div>
 
       <Card>
         <CardContent className="pt-6">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
@@ -114,6 +115,7 @@ export function StaffManagementPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </CardContent>
       </Card>
 

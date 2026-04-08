@@ -54,14 +54,14 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Summary Reports</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Summary Reports</h2>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 items-end">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">Start Date</label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -70,11 +70,11 @@ export function ReportsPage() {
               <label className="text-sm font-medium">End Date</label>
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
-            <Button onClick={fetchReport} disabled={loading}>
+            <Button onClick={fetchReport} disabled={loading} className="w-full sm:w-auto">
               {loading ? 'Loading...' : 'Generate'}
             </Button>
             {rows.length > 0 && (
-              <Button variant="outline" onClick={exportCsv}>
+              <Button variant="outline" onClick={exportCsv} className="w-full sm:w-auto">
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>

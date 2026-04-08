@@ -60,18 +60,18 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Admin Dashboard</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Admin Dashboard</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">New Requests</CardTitle>
+            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">New Requests</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{stats.processing}</div>
+            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.processing}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Incomplete</CardTitle>
           </CardHeader>
@@ -79,7 +79,7 @@ export function AdminDashboard() {
             <div className="text-3xl font-bold">{stats.incomplete}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Unclaimed (Signed)</CardTitle>
           </CardHeader>
@@ -87,7 +87,7 @@ export function AdminDashboard() {
             <div className="text-3xl font-bold">{stats.unclaimed}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Today's Completed</CardTitle>
           </CardHeader>
@@ -100,9 +100,9 @@ export function AdminDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">All Requests</CardTitle>
-          <div className="flex gap-4 mt-2">
+          <div className="flex flex-col sm:flex-row gap-3 mt-2">
             <select
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm w-full sm:w-auto"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -115,7 +115,7 @@ export function AdminDashboard() {
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-48"
+              className="w-full sm:w-48"
             />
           </div>
         </CardHeader>
