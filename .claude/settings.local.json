@@ -36,7 +36,14 @@
       "Bash(git -C /c/Users/satui/OneDrive/Desktop/JEZREEN/thesis log --oneline -20)",
       "Bash(grep -r rtms c:UserssatuiOneDriveDesktopJEZREENthesisrtms --include=*.ts --include=*.tsx --include=*.json --include=*.html --include=*.env* --include=*.md)",
       "Bash(grep -ri RTMS c:UserssatuiOneDriveDesktopJEZREENthesisrtms --include=*.ts --include=*.tsx --include=*.json --include=*.html --include=*.env* --include=*.md)",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(claude mcp:*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

@@ -7,13 +7,7 @@
   ],
   "functions": {
     "api/index.mjs": {
-      "includeFiles": [
-        "server/dist/**",
-        "server/prisma/**",
-        "server/node_modules/.prisma/**",
-        "server/node_modules/@prisma/**",
-        "shared/dist/**"
-      ]
+      "includeFiles": "{server/dist/**,server/prisma/**,server/node_modules/.prisma/**,server/node_modules/@prisma/**,shared/dist/**}"
     }
   }
 }
