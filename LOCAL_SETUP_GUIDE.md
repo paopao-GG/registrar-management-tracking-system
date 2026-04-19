@@ -1,9 +1,9 @@
-# RTMS — Local Development Setup Guide
+# RTAMS — Local Development Setup Guide
 
-> **Registrar Transaction Management System**
+> **Registrar Task Accomplishment Monitoring System**
 > Full-stack web application built with React + Fastify + PostgreSQL
 
-This guide walks you through setting up the RTMS project on a brand-new device from scratch.
+This guide walks you through setting up the RTAMS project on a brand-new device from scratch.
 
 ---
 
@@ -81,10 +81,10 @@ psql --version
 If you prefer Docker:
 
 ```bash
-docker run --name rtms-postgres \
+docker run --name rtams-postgres \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=rtms \
+  -e POSTGRES_DB=rtams \
   -p 5432:5432 \
   -d postgres:16
 ```
@@ -121,7 +121,7 @@ If you already have the project files (e.g., from a USB drive or zip file), just
 
 ## 4. Set Up PostgreSQL Database
 
-You need to create a database named `rtms` in PostgreSQL.
+You need to create a database named `rtams` in PostgreSQL.
 
 ### Using psql (Command Line)
 
@@ -136,7 +136,7 @@ Once inside the `psql` shell:
 
 ```sql
 -- Create the database
-CREATE DATABASE rtms;
+CREATE DATABASE rtams;
 
 -- Verify it was created
 \l
@@ -150,18 +150,18 @@ CREATE DATABASE rtms;
 1. Open **pgAdmin 4**
 2. Connect to your local PostgreSQL server
 3. Right-click on **Databases** → **Create** → **Database...**
-4. Set the database name to `rtms`
+4. Set the database name to `rtams`
 5. Click **Save**
 
 ---
 
 ## 5. Configure Environment Variables
 
-The server reads configuration from a `.env` file located in the `rtms/` directory.
+The server reads configuration from a `.env` file located in the `rtams/` directory.
 
 ```bash
-# Navigate to the rtms workspace root
-cd rtms
+# Navigate to the rtams workspace root
+cd rtams
 
 # Copy the example environment file
 cp .env.example .env
@@ -170,7 +170,7 @@ cp .env.example .env
 Now open the `.env` file in a text editor and update the values:
 
 ```env
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/rtms
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/rtams
 JWT_SECRET=your-secret-key-change-in-production
 PORT=3001
 CORS_ORIGIN=http://localhost:5173
@@ -183,7 +183,7 @@ NODE_ENV=development
 
 | Variable       | Description                              | Default Value                |
 | -------------- | ---------------------------------------- | ---------------------------- |
-| `DATABASE_URL` | PostgreSQL connection string             | `postgresql://postgres:postgres@localhost:5432/rtms` |
+| `DATABASE_URL` | PostgreSQL connection string             | `postgresql://postgres:postgres@localhost:5432/rtams` |
 | `JWT_SECRET`   | Secret key for signing JWT tokens        | `dev-secret-change-me`       |
 | `PORT`         | Port the backend API server runs on      | `3001`                       |
 | `CORS_ORIGIN`  | Allowed frontend origin for CORS         | `http://localhost:5173`      |
@@ -195,7 +195,7 @@ NODE_ENV=development
 
 ## 6. Install Dependencies
 
-From the `rtms/` directory (the workspace root):
+From the `rtams/` directory (the workspace root):
 
 ```bash
 # Install all dependencies for all workspaces (shared, server, client)
@@ -203,9 +203,9 @@ npm install
 ```
 
 This single command installs dependencies for:
-- `@rtms/shared` — Shared TypeScript types and Zod validation schemas
-- `@rtms/server` — Fastify backend API
-- `@rtms/client` — React frontend (Vite)
+- `@rtams/shared` — Shared TypeScript types and Zod validation schemas
+- `@rtams/server` — Fastify backend API
+- `@rtams/client` — React frontend (Vite)
 
 The project uses **npm workspaces**, so all three packages are managed from the root.
 
@@ -253,7 +253,7 @@ cd ..
 Seeding populates the database with initial data (admin account, sample staff accounts, and sample students).
 
 ```bash
-# From the rtms/ root directory
+# From the rtams/ root directory
 npm run seed
 ```
 
@@ -279,14 +279,14 @@ You need to run **two processes** — the backend server and the frontend dev se
 Before running the dev servers for the first time, build the shared package:
 
 ```bash
-# From rtms/ root
+# From rtams/ root
 npm run build -w shared
 ```
 
 ### Terminal 1 — Start the Backend Server
 
 ```bash
-# From rtms/ root
+# From rtams/ root
 npm run dev:server
 ```
 
@@ -299,7 +299,7 @@ Server listening at http://0.0.0.0:3001
 ### Terminal 2 — Start the Frontend Dev Server
 
 ```bash
-# From rtms/ root
+# From rtams/ root
 npm run dev:client
 ```
 
@@ -320,7 +320,7 @@ Open your browser and go to:
 http://localhost:5173
 ```
 
-You should see the RTMS login page.
+You should see the RTAMS login page.
 
 ---
 
@@ -337,13 +337,13 @@ You should see the RTMS login page.
 ## 11. Project Structure Overview
 
 ```
-rtms/
+rtams/
 ├── package.json            # Workspace root — defines workspaces and root scripts
 ├── tsconfig.base.json      # Shared TypeScript compiler settings
 ├── .env                    # Environment variables (you created this)
 ├── .env.example            # Template for environment variables
 │
-├── shared/                 # @rtms/shared — Shared types & validation
+├── shared/                 # @rtams/shared — Shared types & validation
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── src/
@@ -352,7 +352,7 @@ rtms/
 │       ├── validation.ts   # Zod validation schemas
 │       └── constants.ts    # Shared constants (courses, doc types, etc.)
 │
-├── server/                 # @rtms/server — Fastify API backend
+├── server/                 # @rtams/server — Fastify API backend
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── prisma/
@@ -367,7 +367,7 @@ rtms/
 │       ├── services/       # Business logic layer
 │       └── utils/          # Helpers (JWT, passwords, CSV, etc.)
 │
-└── client/                 # @rtms/client — React frontend
+└── client/                 # @rtams/client — React frontend
     ├── package.json
     ├── tsconfig.json
     ├── vite.config.ts      # Vite config (proxy, aliases)
@@ -423,9 +423,9 @@ PostgreSQL is not running.
 
 - **Windows**: Open **Services** (`services.msc`) and start the `postgresql-x64-16` service
 - **macOS**: Run `brew services start postgresql`
-- **Docker**: Run `docker start rtms-postgres`
+- **Docker**: Run `docker start rtams-postgres`
 
-### `database "rtms" does not exist`
+### `database "rtams" does not exist`
 
 You haven't created the database yet. Go back to [Step 4](#4-set-up-postgresql-database).
 
@@ -434,9 +434,9 @@ You haven't created the database yet. Go back to [Step 4](#4-set-up-postgresql-d
 Check your `DATABASE_URL` in `.env`:
 - Is the password correct?
 - Is PostgreSQL running on port 5432?
-- Did you create the `rtms` database?
+- Did you create the `rtams` database?
 
-### `Cannot find module '@rtms/shared'`
+### `Cannot find module '@rtams/shared'`
 
 The shared package hasn't been built yet. Run:
 
@@ -508,10 +508,10 @@ For experienced developers, here's the condensed version:
 # 1. Ensure Node.js 20+ and PostgreSQL 16+ are installed and running
 
 # 2. Create the database
-psql -U postgres -c "CREATE DATABASE rtms;"
+psql -U postgres -c "CREATE DATABASE rtams;"
 
 # 3. Enter the workspace root
-cd rtms
+cd rtams
 
 # 4. Create your .env file
 cp .env.example .env

@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
-import { createStudentSchema } from '@rtms/shared';
+import { createStudentSchema } from '@rtams/shared';
 
 export async function studentRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);

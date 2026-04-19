@@ -23,7 +23,7 @@ export function LoginPage() {
 
     try {
       await login(username, password);
-      const savedUser = JSON.parse(localStorage.getItem('rtms_user') || '{}');
+      const savedUser = JSON.parse(localStorage.getItem('rtams_user') || '{}');
       navigate(savedUser.role === 'admin' ? '/admin' : '/staff');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed');
@@ -46,9 +46,9 @@ export function LoginPage() {
 
       <Card className="w-full max-w-md shadow-lg border-0">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">RTMS</CardTitle>
+          <CardTitle className="text-2xl">RTAMS</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Registrar Transaction Management System
+            Registrar Task Accomplishment Monitoring System
           </p>
           <p className="text-xs text-muted-foreground">Bicol University Polangui</p>
         </CardHeader>

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
-import { COURSES, YEAR_LEVELS } from '@rtms/shared';
+import { COURSES, YEAR_LEVELS } from '@rtams/shared';
 
 interface Props {
   open: boolean;

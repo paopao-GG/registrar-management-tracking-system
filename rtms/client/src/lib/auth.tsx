@@ -24,8 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('rtms_token');
-    const savedUser = localStorage.getItem('rtms_user');
+    const savedToken = localStorage.getItem('rtams_token');
+    const savedUser = localStorage.getItem('rtams_user');
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
@@ -37,15 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await api.post('/auth/login', { username, password });
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem('rtms_token', data.token);
-    localStorage.setItem('rtms_user', JSON.stringify(data.user));
+    localStorage.setItem('rtams_token', data.token);
+    localStorage.setItem('rtams_user', JSON.stringify(data.user));
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('rtms_token');
-    localStorage.removeItem('rtms_user');
+    localStorage.removeItem('rtams_token');
+    localStorage.removeItem('rtams_user');
   };
 
   return (

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentCounter } from './DocumentCounter';
 import { StudentAutocomplete } from '@/components/students/StudentAutocomplete';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
-import { DOCUMENT_TYPES } from '@rtms/shared';
+import { DOCUMENT_TYPES } from '@rtams/shared';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';

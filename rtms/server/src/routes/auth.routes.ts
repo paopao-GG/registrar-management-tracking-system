@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { login } from '../services/auth.service.js';
-import { loginSchema } from '@rtms/shared';
+import { loginSchema } from '@rtams/shared';
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (request, reply) => {

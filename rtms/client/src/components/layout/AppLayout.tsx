@@ -35,7 +35,7 @@ export function AppLayout() {
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex w-64 flex-col bg-card shadow-md border-r border-border/50">
         <div className="p-6 border-b border-border/50">
-          <h1 className="text-lg font-bold tracking-tight">RTMS</h1>
+          <h1 className="text-lg font-bold tracking-tight">RTAMS</h1>
           <p className="text-xs text-muted-foreground">Bicol University Polangui</p>
         </div>
 
@@ -75,7 +75,7 @@ export function AppLayout() {
       {/* Mobile top header — both staff and admin */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-card border-b border-border/50 shadow-sm flex items-center justify-between px-4">
         <div>
-          <span className="text-sm font-bold tracking-tight">RTMS</span>
+          <span className="text-sm font-bold tracking-tight">RTAMS</span>
           {!isAdmin && <span className="text-xs text-muted-foreground ml-2">{user?.name}</span>}
         </div>
         <div className="flex items-center gap-1">

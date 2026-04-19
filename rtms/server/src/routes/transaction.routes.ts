@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
-import { createTransactionSchema, releaseTransactionSchema } from '@rtms/shared';
+import { createTransactionSchema, releaseTransactionSchema } from '@rtams/shared';
 import { prisma } from '../config/db.js';
 import { toApiTransaction } from '../utils/doc-mapper.js';
 import {

@@ -1,5 +1,5 @@
 import { prisma } from '../config/db.js';
-import { DOCUMENT_TYPES } from '@rtms/shared';
+import { DOCUMENT_TYPES } from '@rtams/shared';
 
 export async function generateReport(startDate: string, endDate: string) {
   const start = new Date(startDate);

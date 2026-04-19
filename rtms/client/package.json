@@ -1,5 +1,5 @@
 {
-  "name": "@rtms/client",
+  "name": "@rtams/client",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -18,7 +18,7 @@
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
-    "@rtms/shared": "*",
+    "@rtams/shared": "*",
     "@tanstack/react-query": "^5.60.0",
     "axios": "^1.7.0",
     "class-variance-authority": "^0.7.0",

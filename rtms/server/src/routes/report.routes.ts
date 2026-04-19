@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
-import { reportFiltersSchema } from '@rtms/shared';
+import { reportFiltersSchema } from '@rtams/shared';
 import { generateReport } from '../services/report.service.js';
 import { toCsv } from '../utils/csv.js';
 

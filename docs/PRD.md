@@ -1,5 +1,5 @@
 # Product Requirements Document (PRD)
-## Registrar Transaction Management System
+## Registrar Task Accomplishment Monitoring System
 ### Bicol University Polangui
 
 | Field | Value |
@@ -17,7 +17,7 @@
 The Office of the Registrar at Bicol University Polangui currently tracks document requests and service transactions through manual logbooks or spreadsheets. This process is slow, error-prone, and makes it difficult to generate reports, track processing duration, or identify bottlenecks. Staff have no reliable way to see which documents remain unclaimed, and the Registrar lacks visibility into daily workload and performance metrics.
 
 ### Solution Overview
-A web-based **Registrar Transaction Management System (RTMS)** that digitizes the entire document request lifecycle — from encoding a student's request, through review/signing by the Registrar, to document release and claiming. The system automates timestamps, status tracking, duration calculation, and report generation.
+A web-based **Registrar Task Accomplishment Monitoring System (RTAMS)** that digitizes the entire document request lifecycle — from encoding a student's request, through review/signing by the Registrar, to document release and claiming. The system automates timestamps, status tracking, duration calculation, and report generation.
 
 ### Business Impact
 - Eliminate manual logbook errors and data loss
@@ -81,7 +81,7 @@ Current State (Manual):
 Student arrives → Staff writes in logbook → Registrar signs physical log →
 Student returns to claim → Staff writes release info → End of day: manual counting
 
-Future State (RTMS):
+Future State (RTAMS):
 Student arrives → Staff encodes request (auto-timestamps) → Registrar reviews/signs in system →
 Student returns → Staff records claimer + signature → System auto-calculates duration →
 Reports generated on demand

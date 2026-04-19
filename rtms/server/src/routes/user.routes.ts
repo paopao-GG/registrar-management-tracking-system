@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import { prisma } from '../config/db.js';
 import { hashPassword } from '../utils/password.js';
-import { createUserSchema, updateUserSchema } from '@rtms/shared';
+import { createUserSchema, updateUserSchema } from '@rtams/shared';
 
 export async function userRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);

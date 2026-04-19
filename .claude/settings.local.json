@@ -33,7 +33,10 @@
       "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_SPON6FJyBC7R@ep-round-paper-a1f3vgkv.ap-southeast-1.aws.neon.tech/neondb?sslmode=require\" npx prisma migrate deploy)",
       "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_SPON6FJyBC7R@ep-round-paper-a1f3vgkv.ap-southeast-1.aws.neon.tech/neondb?sslmode=require\" npm run seed)",
       "Bash(find /c/Users/satui/OneDrive/Desktop/JEZREEN/thesis/rtms -maxdepth 2 \\\\\\(-name .husky -o -name .prettierrc* -o -name .eslintrc* -o -name lint-staged -o -name package-lock.json -o -name pnpm-lock.yaml \\\\\\) -type d -o -name .*rc* -type f)",
-      "Bash(git -C /c/Users/satui/OneDrive/Desktop/JEZREEN/thesis log --oneline -20)"
+      "Bash(git -C /c/Users/satui/OneDrive/Desktop/JEZREEN/thesis log --oneline -20)",
+      "Bash(grep -r rtms c:UserssatuiOneDriveDesktopJEZREENthesisrtms --include=*.ts --include=*.tsx --include=*.json --include=*.html --include=*.env* --include=*.md)",
+      "Bash(grep -ri RTMS c:UserssatuiOneDriveDesktopJEZREENthesisrtms --include=*.ts --include=*.tsx --include=*.json --include=*.html --include=*.env* --include=*.md)",
+      "Bash(xargs sed:*)"
     ]
   }
 }

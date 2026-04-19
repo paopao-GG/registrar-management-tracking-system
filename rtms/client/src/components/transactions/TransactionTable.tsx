@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDate, formatDateTime, formatDuration } from '@/lib/utils';
-import { DOCUMENT_TYPES } from '@rtms/shared';
+import { DOCUMENT_TYPES } from '@rtams/shared';
 
 interface Transaction {
   _id: string;
