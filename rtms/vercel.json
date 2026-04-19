@@ -1,0 +1,19 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "client/dist",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" }
+  ],
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": [
+        "server/dist/**",
+        "server/prisma/**",
+        "server/node_modules/.prisma/**",
+        "server/node_modules/@prisma/**",
+        "shared/dist/**"
+      ]
+    }
+  }
+}
