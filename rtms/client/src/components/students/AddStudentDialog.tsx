@@ -12,23 +12,42 @@ interface Props {
 }
 
 export function AddStudentDialog({ open, onClose, onCreated }: Props) {
-  const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [studentNumber, setStudentNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [course, setCourse] = useState<string>(COURSES[0]);
   const [yearLevel, setYearLevel] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = () => {
+    setLastName('');
+    setFirstName('');
+    setMiddleName('');
+    setStudentNumber('');
+    setEmail('');
+    setCourse(COURSES[0]);
+    setYearLevel(1);
+    setError(null);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      const { data } = await api.post('/students', { name, course, yearLevel });
+      const payload: Record<string, unknown> = { lastName, firstName, course, yearLevel };
+      if (middleName.trim()) payload.middleName = middleName.trim();
+      if (studentNumber.trim()) payload.studentNumber = studentNumber.trim();
+      if (email.trim()) payload.email = email.trim();
+      const { data } = await api.post('/students', payload);
       onCreated(data);
-      setName('');
-      setCourse(COURSES[0]);
-      setYearLevel(1);
+      reset();
       onClose();
-    } catch {
-      alert('Failed to create student');
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'Failed to create student');
     } finally {
       setLoading(false);
     }
@@ -41,10 +60,29 @@ export function AddStudentDialog({ open, onClose, onCreated }: Props) {
           <DialogTitle>Add New Student</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Name</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Surname, First Name (e.g. Dela Cruz, Juan)" required />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Last Name</label>
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">First Name</label>
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <label className="text-sm font-medium">Middle Name <span className="text-muted-foreground">(optional)</span></label>
+              <Input value={middleName} onChange={(e) => setMiddleName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Student Number <span className="text-muted-foreground">(optional)</span></label>
+              <Input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} placeholder="e.g. 2023-0000-00001" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email <span className="text-muted-foreground">(optional)</span></label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
           </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Program</label>
             <select
@@ -69,6 +107,13 @@ export function AddStudentDialog({ open, onClose, onCreated }: Props) {
               ))}
             </select>
           </div>
+
+          {error && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Add Student'}
           </Button>

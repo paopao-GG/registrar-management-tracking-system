@@ -3,9 +3,14 @@ import api from '../lib/api';
 
 interface Student {
   _id: string;
-  name: string;
+  studentNumber: string;
+  lastName: string;
+  firstName: string;
+  middleName: string | null;
+  email: string | null;
   course: string;
   yearLevel: number;
+  name: string;
 }
 
 export function useStudentSearch(query: string) {

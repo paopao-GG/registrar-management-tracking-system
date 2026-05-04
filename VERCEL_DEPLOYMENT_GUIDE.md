@@ -36,12 +36,14 @@ All three parts of the monorepo (`shared`, `server`, `client`) build together in
    postgresql://postgres.wqsyssomrigyflhirehc:[YOUR-PASSWORD]@aws-0-[region].pooler.supabase.com:6543/postgres
    ```
 6. Replace `[YOUR-PASSWORD]` with your actual database password
-7. Append `?connection_limit=1` to the end:
+7. Append `?pgbouncer=true&connection_limit=1` to the end:
    ```
-   postgresql://postgres.wqsyssomrigyflhirehc:ENKbZprc0zFJbKgY@aws-0-[region].pooler.supabase.com:6543/postgres?connection_limit=1
+   postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
    ```
 
 **Why the pooler?** Serverless functions spin up many short-lived connections. Direct PostgreSQL connections would exhaust the database's connection limit. Supabase's transaction pooler multiplexes them safely.
+
+**Why `pgbouncer=true` is required for Prisma.** Supabase's transaction pooler does not support prepared statements, which Prisma uses by default. Without this flag, queries will fail at runtime with `prepared statement "s0" already exists`. The flag tells Prisma to skip prepared statements.
 
 ### 1.2 Apply the database schema
 
@@ -119,10 +121,11 @@ Expand the **Environment Variables** section and add:
 |------|-------|-------|
 | `DATABASE_URL` | Your Supabase pooler URL with `?connection_limit=1` | From Part 1.1 |
 | `JWT_SECRET` | A strong random string of 32+ characters | Generate at [randomkeygen.com](https://randomkeygen.com) (use CodeIgniter Encryption Keys) |
-| `NODE_ENV` | `production` | |
 | `CORS_ORIGIN` | Leave empty for now | You'll set this after the first deploy |
 
 > Vercel automatically sets `VERCEL=1` which your server code uses to detect the serverless environment.
+
+> **Do not set `NODE_ENV`.** Vercel manages it automatically — unset during build (so devDependencies like `vite` install) and `production` at runtime. Setting it manually causes `npm install` to skip devDependencies and the build will fail with "Cannot find module 'vite'".
 
 ### 3.4 Deploy
 
@@ -205,6 +208,10 @@ The deploy takes ~2 minutes. You can monitor it in the Vercel dashboard.
 
 ## Troubleshooting
 
+### Build fails with "Cannot find module 'vite'" or "Cannot find type definition file for 'vite/client'"
+
+`NODE_ENV=production` is set as a Vercel environment variable, which causes `npm install` to skip devDependencies (where `vite`, `@vitejs/plugin-react`, and `typescript` live). **Remove the `NODE_ENV` variable from your Vercel project's environment settings and redeploy.** Vercel sets it automatically at runtime — you never need to set it yourself.
+
 ### Build fails with "Cannot find module '@rtms/shared'"
 
 The `shared` package didn't build before `server` or `client`. Check that `rtms/package.json` has:
@@ -214,6 +221,10 @@ The `shared` package didn't build before `server` or `client`. Check that `rtms/
   "build": "npm run build -w shared && npm run build -w server && npm run build -w client"
 }
 ```
+
+### API returns 500 with "prepared statement \"s0\" already exists"
+
+Your `DATABASE_URL` is missing the `pgbouncer=true` flag. Supabase's transaction pooler (port 6543) doesn't support prepared statements, but Prisma uses them by default. Fix: append `?pgbouncer=true&connection_limit=1` to your `DATABASE_URL` in Vercel env vars and redeploy.
 
 ### API returns 500 with "PrismaClientInitializationError"
 

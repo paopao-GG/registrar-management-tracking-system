@@ -25,14 +25,17 @@
     "clsx": "^2.1.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.460.0",
+    "papaparse": "5.5.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.6.0",
     "react-signature-canvas": "^1.0.6",
+    "read-excel-file": "5.8.8",
     "tailwind-merge": "^2.5.0"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",
+    "@types/papaparse": "5.3.16",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/react-signature-canvas": "^1.0.5",

@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -24,16 +25,21 @@ model User {
 }
 
 model Student {
-  id        String   @id @default(uuid())
-  name      String
-  course    String
-  yearLevel Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  studentNumber String   @unique
+  lastName      String
+  firstName     String
+  middleName    String?
+  email         String?
+  course        String
+  yearLevel     Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   transactions Transaction[]
 
-  @@index([name])
+  @@index([lastName])
+  @@index([studentNumber])
 }
 
 model Transaction {

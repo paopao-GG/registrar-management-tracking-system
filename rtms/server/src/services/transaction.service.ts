@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { logStatusChange } from './audit.service.js';
 import { toDocColumns, toApiTransaction } from '../utils/doc-mapper.js';
+import { formatStudentName } from '@rtams/shared';
 
 interface CreateInput {
   studentId: string;
@@ -19,7 +20,7 @@ export async function createTransaction(input: CreateInput) {
   const transaction = await prisma.transaction.create({
     data: {
       studentId: student.id,
-      studentName: student.name,
+      studentName: formatStudentName(student),
       studentCourse: student.course,
       studentYearLevel: student.yearLevel,
       ...toDocColumns(input.requestedDocuments),

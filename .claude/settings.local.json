@@ -39,7 +39,18 @@
       "Bash(xargs sed:*)",
       "Bash(claude mcp:*)",
       "mcp__supabase__list_tables",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__search_docs",
+      "Bash(curl -s -o /tmp/api_response.json -w \"HTTP_STATUS:%{http_code}\\\\n\" -X POST \"https://rtams-gmbs82xpm-paolosimeonsatuito20-4495s-projects.vercel.app/api/auth/login\" -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /tmp/api_response.json -w \"HTTP_STATUS:%{http_code}\\\\n\" -X POST \"https://rtams.vercel.app/api/auth/login\" -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(curl -s -I -X POST \"https://rtams.vercel.app/api/auth/login\" -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(git fetch *)",
+      "Bash(curl -s -X POST \"https://rtams.vercel.app/api/auth/login\" -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}' -w \"\\\\n---HTTP_STATUS:%{http_code}---\\\\n\")",
+      "Bash(xargs ls *)",
+      "Bash(wmic process *)"
     ]
   },
   "enableAllProjectMcpServers": true,

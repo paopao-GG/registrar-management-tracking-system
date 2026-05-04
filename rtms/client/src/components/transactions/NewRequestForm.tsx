@@ -83,6 +83,7 @@ export function NewRequestForm({ onCreated }: Props) {
               <StudentAutocomplete
                 onSelect={(s) => setSelectedStudent(s)}
                 onAddNew={() => setAddStudentOpen(true)}
+                onImported={onCreated}
               />
             </div>
 

@@ -42,18 +42,17 @@ async function seed() {
     console.log(`Staff ready: ${staff.username} / ${staff.password}`);
   }
 
-  // Seed sample students (surname first format)
   const studentCount = await prisma.student.count();
   if (studentCount === 0) {
     const sampleStudents = [
-      { name: 'Reyes, Ana', course: 'BSIT', yearLevel: 3 },
-      { name: 'Mendoza, Carlo', course: 'BSCS', yearLevel: 2 },
-      { name: 'Lopez, Diana', course: 'BSBA', yearLevel: 4 },
-      { name: 'Garcia, Eduardo', course: 'BSIT', yearLevel: 1 },
-      { name: 'Cruz, Fatima', course: 'BSED', yearLevel: 3 },
-      { name: 'Santos, Gabriel', course: 'BSCRIM', yearLevel: 2 },
-      { name: 'Flores, Hannah', course: 'BSA', yearLevel: 4 },
-      { name: 'Torres, Ivan', course: 'BSAGRI', yearLevel: 1 },
+      { studentNumber: 'SEED-0001', lastName: 'Reyes', firstName: 'Ana', course: 'BSIT', yearLevel: 3 },
+      { studentNumber: 'SEED-0002', lastName: 'Mendoza', firstName: 'Carlo', course: 'BSCS', yearLevel: 2 },
+      { studentNumber: 'SEED-0003', lastName: 'Lopez', firstName: 'Diana', course: 'BSBA', yearLevel: 4 },
+      { studentNumber: 'SEED-0004', lastName: 'Garcia', firstName: 'Eduardo', course: 'BSIT', yearLevel: 1 },
+      { studentNumber: 'SEED-0005', lastName: 'Cruz', firstName: 'Fatima', course: 'BSED', yearLevel: 3 },
+      { studentNumber: 'SEED-0006', lastName: 'Santos', firstName: 'Gabriel', course: 'BSCRIM', yearLevel: 2 },
+      { studentNumber: 'SEED-0007', lastName: 'Flores', firstName: 'Hannah', course: 'BSA', yearLevel: 4 },
+      { studentNumber: 'SEED-0008', lastName: 'Torres', firstName: 'Ivan', course: 'BSAGRI', yearLevel: 1 },
     ];
     await prisma.student.createMany({ data: sampleStudents });
     console.log(`Created ${sampleStudents.length} sample students`);

@@ -4,7 +4,7 @@ import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LogOut, LayoutDashboard, FileText, Users, ScrollText, Sun, Moon } from 'lucide-react';
+import { LogOut, LayoutDashboard, FileText, Users, ScrollText, Sun, Moon, GraduationCap } from 'lucide-react';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -18,6 +18,7 @@ export function AppLayout() {
   const navItems = isAdmin
     ? [
         { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/admin/students', label: 'Students', icon: GraduationCap },
         { to: '/admin/reports', label: 'Reports', icon: FileText },
         { to: '/admin/staff-management', label: 'Staff', icon: Users },
         { to: '/admin/audit-log', label: 'Audit Log', icon: ScrollText },

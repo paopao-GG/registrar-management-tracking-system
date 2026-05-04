@@ -9,6 +9,7 @@ import { AdminDashboard } from '@/pages/AdminDashboard';
 import { ReportsPage } from '@/pages/ReportsPage';
 import { StaffManagementPage } from '@/pages/StaffManagementPage';
 import { AuditLogPage } from '@/pages/AuditLogPage';
+import { AdminStudentsPage } from '@/pages/AdminStudentsPage';
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ function App() {
               }
             >
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/students" element={<AdminStudentsPage />} />
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/staff-management" element={<StaffManagementPage />} />
               <Route path="/admin/audit-log" element={<AuditLogPage />} />
