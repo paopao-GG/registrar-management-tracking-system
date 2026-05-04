@@ -3,7 +3,8 @@
   "outputDirectory": "client/dist",
   "installCommand": "npm install",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/index.mjs": {
