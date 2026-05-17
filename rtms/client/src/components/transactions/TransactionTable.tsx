@@ -28,19 +28,21 @@ interface Props {
   transactions: Transaction[];
   onSign?: (id: string) => void;
   onRelease?: (id: string) => void;
+  onStartProcessing?: (id: string) => void;
   showActions?: boolean;
 }
 
 const statusVariant = (status: string) => {
   switch (status) {
+    case 'Pending': return 'secondary' as const;
     case 'Processing': return 'warning' as const;
-    case 'Signed': return 'default' as const;
+    case 'Ready for Release': return 'default' as const;
     case 'Released': return 'success' as const;
     default: return 'secondary' as const;
   }
 };
 
-export function TransactionTable({ transactions, onSign, onRelease, showActions = true }: Props) {
+export function TransactionTable({ transactions, onSign, onRelease, onStartProcessing, showActions = true }: Props) {
   const [viewSig, setViewSig] = useState<{ signature: string; releasedTo: string } | null>(null);
 
   if (transactions.length === 0) {
@@ -101,12 +103,17 @@ export function TransactionTable({ transactions, onSign, onRelease, showActions 
                 </td>
                 {showActions && (
                   <td className="px-3 py-2 space-x-1">
+                    {t.status === 'Pending' && onStartProcessing && (
+                      <Button size="sm" variant="outline" onClick={() => onStartProcessing(t._id)}>
+                        Start Processing
+                      </Button>
+                    )}
                     {t.status === 'Processing' && onSign && (
                       <Button size="sm" variant="outline" onClick={() => onSign(t._id)}>
                         Sign
                       </Button>
                     )}
-                    {t.status === 'Signed' && onRelease && (
+                    {t.status === 'Ready for Release' && onRelease && (
                       <Button size="sm" variant="outline" onClick={() => onRelease(t._id)}>
                         Release
                       </Button>

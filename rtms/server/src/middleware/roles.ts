@@ -9,3 +9,4 @@ export function requireRole(role: string) {
 }
 
 export const requireAdmin = requireRole('admin');
+export const requireStaff = requireRole('staff');

@@ -1,11 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/roles.js';
+import { requireAdmin, requireStaff } from '../middleware/roles.js';
 import { createTransactionSchema, releaseTransactionSchema } from '@rtams/shared';
 import { prisma } from '../config/db.js';
 import { toApiTransaction } from '../utils/doc-mapper.js';
 import {
   createTransaction,
+  startProcessing,
   signTransaction,
   releaseTransaction,
   getTransactions,
@@ -52,6 +53,17 @@ export async function transactionRoutes(app: FastifyInstance) {
     }
   });
 
+  app.patch('/api/transactions/:id/start', {
+    preHandler: requireStaff,
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      return await startProcessing(id, request.user.id, request.user.name);
+    } catch (error: any) {
+      return reply.status(400).send({ error: error.message });
+    }
+  });
+
   app.patch('/api/transactions/:id/sign', {
     preHandler: requireAdmin,
   }, async (request, reply) => {
@@ -64,7 +76,7 @@ export async function transactionRoutes(app: FastifyInstance) {
     }
   });
 
-  app.patch('/api/transactions/:id/release', async (request, reply) => {
+  app.patch('/api/transactions/:id/release', { preHandler: requireStaff }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = releaseTransactionSchema.safeParse(request.body);
     if (!parsed.success) {

@@ -2,22 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
-import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
 import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
 
 export function AdminDashboard() {
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [stats, setStats] = useState({ incomplete: 0, unclaimed: 0, todayCompleted: 0, processing: 0 });
+  const [stats, setStats] = useState({ newRequests: 0, incomplete: 0, unclaimed: 0, todayCompleted: 0 });
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [signId, setSignId] = useState<string | null>(null);
-  const [releaseId, setReleaseId] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    const [processingRes, signedRes] = await Promise.all([
+    const [pendingRes, processingRes, readyRes] = await Promise.all([
+      api.get('/transactions', { params: { status: 'Pending' } }),
       api.get('/transactions', { params: { status: 'Processing' } }),
-      api.get('/transactions', { params: { status: 'Signed' } }),
+      api.get('/transactions', { params: { status: 'Ready for Release' } }),
     ]);
 
     const today = new Date().toISOString().split('T')[0];
@@ -26,9 +25,9 @@ export function AdminDashboard() {
     });
 
     setStats({
-      processing: processingRes.data.total,
-      incomplete: processingRes.data.total + signedRes.data.total,
-      unclaimed: signedRes.data.total,
+      newRequests: pendingRes.data.total,
+      incomplete: pendingRes.data.total + processingRes.data.total + readyRes.data.total,
+      unclaimed: readyRes.data.total,
       todayCompleted: todayReleasedRes.data.total,
     });
   }, []);
@@ -68,7 +67,7 @@ export function AdminDashboard() {
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">New Requests</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.processing}</div>
+            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.newRequests}</div>
           </CardContent>
         </Card>
         <Card className="shadow-sm hover:shadow-md transition-shadow">
@@ -81,7 +80,7 @@ export function AdminDashboard() {
         </Card>
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Unclaimed (Signed)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Unclaimed (Ready for Release)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.unclaimed}</div>
@@ -107,8 +106,9 @@ export function AdminDashboard() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
               <option value="Processing">Processing</option>
-              <option value="Signed">Signed</option>
+              <option value="Ready for Release">Ready for Release</option>
               <option value="Released">Released</option>
             </select>
             <Input
@@ -123,7 +123,6 @@ export function AdminDashboard() {
           <TransactionTable
             transactions={transactions}
             onSign={(id) => setSignId(id)}
-            onRelease={(id) => setReleaseId(id)}
             showActions={true}
           />
         </CardContent>
@@ -134,12 +133,6 @@ export function AdminDashboard() {
         transactionId={signId}
         onClose={() => setSignId(null)}
         onSigned={fetchData}
-      />
-      <ReleaseDialog
-        open={!!releaseId}
-        transactionId={releaseId}
-        onClose={() => setReleaseId(null)}
-        onReleased={fetchData}
       />
     </div>
   );

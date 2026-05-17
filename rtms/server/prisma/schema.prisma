@@ -56,7 +56,7 @@ model Transaction {
   docOTR           Int       @default(0)
   others           String    @default("")
   othersCount      Int       @default(0)
-  status           String    @default("Processing")
+  status           String    @default("Pending")
   preparedBy       String
   preparedByUser   User      @relation("PreparedBy", fields: [preparedBy], references: [id])
   preparedByName   String

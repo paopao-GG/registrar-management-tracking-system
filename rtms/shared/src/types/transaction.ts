@@ -1,6 +1,7 @@
 export enum TransactionStatus {
+  PENDING = 'Pending',
   PROCESSING = 'Processing',
-  SIGNED = 'Signed',
+  READY_FOR_RELEASE = 'Ready for Release',
   RELEASED = 'Released',
 }
 

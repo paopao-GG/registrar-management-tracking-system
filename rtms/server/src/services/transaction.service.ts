@@ -26,7 +26,7 @@ export async function createTransaction(input: CreateInput) {
       ...toDocColumns(input.requestedDocuments),
       others: input.others,
       othersCount: input.othersCount,
-      status: 'Processing',
+      status: 'Pending',
       preparedBy: input.userId,
       preparedByName: input.userName,
       preparedAt: now,
@@ -37,7 +37,7 @@ export async function createTransaction(input: CreateInput) {
     transaction.id,
     'Created',
     null,
-    'Processing',
+    'Pending',
     input.userId,
     input.userName
   );
@@ -58,7 +58,7 @@ export async function signTransaction(transactionId: string, reviewerId: string,
   const updated = await prisma.transaction.update({
     where: { id: transactionId },
     data: {
-      status: 'Signed',
+      status: 'Ready for Release',
       reviewedBy: reviewerId,
       reviewedByName: reviewerName,
       reviewedAt: now,
@@ -70,7 +70,7 @@ export async function signTransaction(transactionId: string, reviewerId: string,
     transactionId,
     'Signed',
     'Processing',
-    'Signed',
+    'Ready for Release',
     reviewerId,
     reviewerName
   );
@@ -87,8 +87,8 @@ export async function releaseTransaction(
 ) {
   const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
   if (!transaction) throw new Error('Transaction not found');
-  if (transaction.status !== 'Signed') {
-    throw new Error('Transaction must be in Signed status to release');
+  if (transaction.status !== 'Ready for Release') {
+    throw new Error('Transaction must be in Ready for Release status to release');
   }
 
   const updated = await prisma.transaction.update({
@@ -104,12 +104,28 @@ export async function releaseTransaction(
   await logStatusChange(
     transactionId,
     'Released',
-    'Signed',
+    'Ready for Release',
     'Released',
     userId,
     userName
   );
 
+  return toApiTransaction(updated);
+}
+
+export async function startProcessing(transactionId: string, userId: string, userName: string) {
+  const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
+  if (!transaction) throw new Error('Transaction not found');
+  if (transaction.status !== 'Pending') {
+    throw new Error('Transaction must be in Pending status to start processing');
+  }
+
+  const updated = await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { status: 'Processing' },
+  });
+
+  await logStatusChange(transactionId, 'Started', 'Pending', 'Processing', userId, userName);
   return toApiTransaction(updated);
 }
 

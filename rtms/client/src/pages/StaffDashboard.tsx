@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { NewRequestForm } from '@/components/transactions/NewRequestForm';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
+import { StartProcessingDialog } from '@/components/transactions/StartProcessingDialog';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
 import { FileText, CheckCircle, Clock, Loader } from 'lucide-react';
@@ -14,6 +15,7 @@ export function StaffDashboard() {
   const [incompleteTransactions, setIncompleteTransactions] = useState<any[]>([]);
   const [todayCompleted, setTodayCompleted] = useState(0);
   const [releaseId, setReleaseId] = useState<string | null>(null);
+  const [startProcessingId, setStartProcessingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchName, setSearchName] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -28,15 +30,18 @@ export function StaffDashboard() {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
 
-    const [todayRes, processingRes, signedRes, releasedTodayRes] = await Promise.all([
+    const [todayRes, pendingRes, processingRes, readyRes, releasedTodayRes] = await Promise.all([
       api.get('/transactions', {
         params: { preparedBy: user.id, startDate: today, endDate: today },
+      }),
+      api.get('/transactions', {
+        params: { preparedBy: user.id, status: 'Pending' },
       }),
       api.get('/transactions', {
         params: { preparedBy: user.id, status: 'Processing' },
       }),
       api.get('/transactions', {
-        params: { preparedBy: user.id, status: 'Signed' },
+        params: { preparedBy: user.id, status: 'Ready for Release' },
       }),
       api.get('/transactions', {
         params: { preparedBy: user.id, status: 'Released', startDate: today, endDate: today },
@@ -45,8 +50,9 @@ export function StaffDashboard() {
 
     setTodayTransactions(todayRes.data.transactions);
     setIncompleteTransactions([
+      ...pendingRes.data.transactions,
       ...processingRes.data.transactions,
-      ...signedRes.data.transactions,
+      ...readyRes.data.transactions,
     ]);
     setTodayCompleted(releasedTodayRes.data.transactions.length);
   }, [user]);
@@ -58,13 +64,15 @@ export function StaffDashboard() {
       const params: any = { preparedBy: user.id };
       if (debouncedSearch) params.search = debouncedSearch;
 
-      const [processingRes, signedRes] = await Promise.all([
+      const [pendingRes, processingRes, readyRes] = await Promise.all([
+        api.get('/transactions', { params: { ...params, status: 'Pending' } }),
         api.get('/transactions', { params: { ...params, status: 'Processing' } }),
-        api.get('/transactions', { params: { ...params, status: 'Signed' } }),
+        api.get('/transactions', { params: { ...params, status: 'Ready for Release' } }),
       ]);
       setIncompleteTransactions([
+        ...pendingRes.data.transactions,
         ...processingRes.data.transactions,
-        ...signedRes.data.transactions,
+        ...readyRes.data.transactions,
       ]);
     };
     fetchIncomplete();
@@ -76,7 +84,7 @@ export function StaffDashboard() {
 
   const incompleteCount = incompleteTransactions.length;
   const processingCount = incompleteTransactions.filter((t) => t.status === 'Processing').length;
-  const unclaimedCount = incompleteTransactions.filter((t) => t.status === 'Signed').length;
+  const unclaimedCount = incompleteTransactions.filter((t) => t.status === 'Ready for Release').length;
 
   const filteredToday = statusFilter
     ? todayTransactions.filter((t) => t.status === statusFilter)
@@ -126,7 +134,7 @@ export function StaffDashboard() {
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-blue-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Unclaimed (Signed)</p>
+                <p className="text-sm text-muted-foreground">Unclaimed (Ready for Release)</p>
                 <p className="text-2xl font-bold">{unclaimedCount}</p>
               </div>
             </div>
@@ -146,8 +154,9 @@ export function StaffDashboard() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
               <option value="Processing">Processing</option>
-              <option value="Signed">Signed</option>
+              <option value="Ready for Release">Ready for Release</option>
               <option value="Released">Released</option>
             </select>
           </div>
@@ -155,6 +164,7 @@ export function StaffDashboard() {
         <CardContent>
           <TransactionTable
             transactions={filteredToday}
+            onStartProcessing={(id) => setStartProcessingId(id)}
             onRelease={(id) => setReleaseId(id)}
             showActions={true}
           />
@@ -176,6 +186,7 @@ export function StaffDashboard() {
         <CardContent>
           <TransactionTable
             transactions={incompleteTransactions}
+            onStartProcessing={(id) => setStartProcessingId(id)}
             onRelease={(id) => setReleaseId(id)}
             showActions={true}
           />
@@ -187,6 +198,12 @@ export function StaffDashboard() {
         transactionId={releaseId}
         onClose={() => setReleaseId(null)}
         onReleased={fetchData}
+      />
+      <StartProcessingDialog
+        open={!!startProcessingId}
+        transactionId={startProcessingId}
+        onClose={() => setStartProcessingId(null)}
+        onStarted={fetchData}
       />
     </div>
   );
