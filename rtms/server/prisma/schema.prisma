@@ -73,6 +73,7 @@ model Transaction {
   updatedAt        DateTime  @updatedAt
 
   auditLogs AuditLog[]
+  signingSessions SigningSession[]
 
   @@index([status])
   @@index([preparedBy])
@@ -93,4 +94,20 @@ model AuditLog {
 
   @@index([transactionId])
   @@index([timestamp(sort: Desc)])
+}
+
+model SigningSession {
+  id            String   @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  token         String   @unique
+  releasedTo    String
+  liveSignature String?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  @@index([transactionId])
+  @@index([status])
 }

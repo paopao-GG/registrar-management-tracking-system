@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
 import { BulkImportDialog } from '@/components/students/BulkImportDialog';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Student {
@@ -49,6 +49,23 @@ export function AdminStudentsPage() {
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
+
+    const handleRemove = async (student: Student) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to remove ${student.name}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/students/${student._id}`);
+      await fetchStudents();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.error ?? 'Failed to remove student.';
+      window.alert(message);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -97,6 +114,7 @@ export function AdminStudentsPage() {
                     <th className="px-2 py-2 font-medium">Program</th>
                     <th className="px-2 py-2 font-medium">Year</th>
                     <th className="px-2 py-2 font-medium">Email</th>
+                    <th className="px-2 py-2 font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -106,7 +124,19 @@ export function AdminStudentsPage() {
                       <td className="px-2 py-2">{s.name}</td>
                       <td className="px-2 py-2">{s.course}</td>
                       <td className="px-2 py-2">{s.yearLevel}</td>
-                      <td className="px-2 py-2 text-muted-foreground">{s.email ?? '—'}</td>
+                      <td className="px-2 py-2 text-muted-foreground">
+                        {s.email ?? '—'}
+                      </td>
+                      <td className="px-2 py-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRemove(s)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

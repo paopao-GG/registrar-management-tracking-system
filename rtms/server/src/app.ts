@@ -8,6 +8,7 @@ import { transactionRoutes } from './routes/transaction.routes.js';
 import { reportRoutes } from './routes/report.routes.js';
 import { userRoutes } from './routes/user.routes.js';
 import { auditRoutes } from './routes/audit.routes.js';
+import { signingRoutes } from './routes/signing.routes.js';
 
 export async function buildApp() {
   const app = Fastify({ logger: true, trustProxy: true });
@@ -42,6 +43,7 @@ export async function buildApp() {
   await app.register(reportRoutes);
   await app.register(userRoutes);
   await app.register(auditRoutes);
+  await app.register(signingRoutes);
 
   return app;
 }

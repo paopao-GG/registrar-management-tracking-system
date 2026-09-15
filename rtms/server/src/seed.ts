@@ -1,12 +1,20 @@
-import { PrismaClient } from '@prisma/client';
-import { env } from './config/env.js';
-import { hashPassword } from './utils/password.js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({
+  path: path.resolve(__dirname, '../../../.env'),
+});
+
+const { PrismaClient } = await import('@prisma/client');
+const { hashPassword } = await import('./utils/password.js');
 
 const prisma = new PrismaClient();
 
 async function seed() {
-  console.log('Connected to PostgreSQL');
-
   // Seed admin
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
@@ -42,7 +50,9 @@ async function seed() {
     console.log(`Staff ready: ${staff.username} / ${staff.password}`);
   }
 
+  // Seed sample students
   const studentCount = await prisma.student.count();
+
   if (studentCount === 0) {
     const sampleStudents = [
       { studentNumber: 'SEED-0001', lastName: 'Reyes', firstName: 'Ana', course: 'BSIT', yearLevel: 3 },
@@ -54,6 +64,7 @@ async function seed() {
       { studentNumber: 'SEED-0007', lastName: 'Flores', firstName: 'Hannah', course: 'BSA', yearLevel: 4 },
       { studentNumber: 'SEED-0008', lastName: 'Torres', firstName: 'Ivan', course: 'BSAGRI', yearLevel: 1 },
     ];
+
     await prisma.student.createMany({ data: sampleStudents });
     console.log(`Created ${sampleStudents.length} sample students`);
   } else {

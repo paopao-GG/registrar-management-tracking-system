@@ -8,15 +8,17 @@ const SignatureCanvas = (ReactSignatureCanvas as any).default || ReactSignatureC
 export interface SignaturePadRef {
   getDataURL: () => string;
   isEmpty: () => boolean;
+  clear: () => void;
 }
 
 export const SignaturePadComponent = forwardRef<SignaturePadRef>((_props, ref) => {
   const sigRef = useRef<ReactSignatureCanvas>(null);
 
   useImperativeHandle(ref, () => ({
-    getDataURL: () => sigRef.current?.toDataURL() || '',
-    isEmpty: () => sigRef.current?.isEmpty() ?? true,
-  }));
+  getDataURL: () => sigRef.current?.toDataURL() || '',
+  isEmpty: () => sigRef.current?.isEmpty() ?? true,
+  clear: () => sigRef.current?.clear(),
+}));
 
   return (
     <div className="space-y-2">

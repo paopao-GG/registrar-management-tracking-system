@@ -10,6 +10,7 @@ import { ReportsPage } from '@/pages/ReportsPage';
 import { StaffManagementPage } from '@/pages/StaffManagementPage';
 import { AuditLogPage } from '@/pages/AuditLogPage';
 import { AdminStudentsPage } from '@/pages/AdminStudentsPage';
+import { TabletSignPage } from '@/pages/TabletSignPage';
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Tablet signing route - public */}
+            <Route path="/tablet-sign" element={<TabletSignPage />} />
 
             {/* Staff routes */}
             <Route

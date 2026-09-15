@@ -88,17 +88,40 @@ function rowsFromTable(headers: string[], records: Array<Record<string, unknown>
 
 async function parseFile(file: File): Promise<{ headers: string[]; records: Array<Record<string, unknown>> }> {
   const ext = file.name.split('.').pop()?.toLowerCase();
+
   if (ext === 'xlsx') {
     const grid = await readXlsxFile(file);
     if (grid.length === 0) return { headers: [], records: [] };
-    const headers = grid[0].map((c) => String(c ?? ''));
-    const records = grid.slice(1).map((row) => {
-      const r: Record<string, unknown> = {};
-      headers.forEach((h, i) => {
-        r[h] = row[i];
+
+    // Find the actual header row in the Registrar's Excel file.
+    const headerRowIndex = grid.findIndex((row) =>
+      row.some(
+        (cell) =>
+          normalizeHeader(String(cell ?? '')) === 'studentnumber'
+      )
+    );
+
+    if (headerRowIndex === -1) {
+      return { headers: [], records: [] };
+    }
+
+    const headers = grid[headerRowIndex].map((c) => String(c ?? ''));
+
+    const records = grid
+      .slice(headerRowIndex + 1)
+      .filter((row) =>
+        row.some((cell) => String(cell ?? '').trim() !== '')
+      )
+      .map((row) => {
+        const r: Record<string, unknown> = {};
+
+        headers.forEach((h, i) => {
+          r[h] = row[i];
+        });
+
+        return r;
       });
-      return r;
-    });
+
     return { headers, records };
   }
   // default: CSV

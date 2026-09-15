@@ -46,7 +46,48 @@ export async function studentRoutes(app: FastifyInstance) {
       take: 10,
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
-    return students.map(toApiStudent);
+        return students.map(toApiStudent);
+  });
+
+  // Remove student — Admin only
+  app.delete('/api/students/:id', async (request, reply) => {
+    if (request.user.role !== 'admin') {
+      return reply.status(403).send({ error: 'Admin access required' });
+    }
+
+    const { id } = request.params as { id: string };
+
+    try {
+      const student = await prisma.student.findUnique({
+        where: { id },
+        include: {
+          transactions: true,
+        },
+      });
+
+      if (!student) {
+        return reply.status(404).send({ error: 'Student not found' });
+      }
+
+      if (student.transactions.length > 0) {
+        return reply.status(409).send({
+          error: 'Cannot remove a student with existing transactions.',
+        });
+      }
+
+      await prisma.student.delete({
+        where: { id },
+      });
+
+      return reply.status(200).send({
+        message: 'Student removed successfully',
+      });
+    } catch (err) {
+      request.log.error(err, 'Failed to remove student');
+      return reply.status(500).send({
+        error: 'Failed to remove student',
+      });
+    }
   });
 
   app.post('/api/students', async (request, reply) => {
