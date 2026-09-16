@@ -12,6 +12,7 @@ function isExpired(createdAt: Date) {
 
 export async function signingRoutes(app: FastifyInstance) {
   /*
+   * STAFF:
    * Create a tablet signing session.
    */
   app.post(
@@ -38,9 +39,10 @@ export async function signingRoutes(app: FastifyInstance) {
         });
       }
 
-      const transaction = await prisma.transaction.findUnique({
-        where: { id: transactionId },
-      });
+      const transaction =
+        await prisma.transaction.findUnique({
+          where: { id: transactionId },
+        });
 
       if (!transaction) {
         return reply.status(404).send({
@@ -56,19 +58,28 @@ export async function signingRoutes(app: FastifyInstance) {
       }
 
       /*
-       * Clean up expired pending sessions first.
+       * Find existing tablet sessions.
+       *
+       * Both "pending" and "signed" sessions are active.
+       *
+       * A "signed" session remains active until staff
+       * confirms or cancels it.
        */
-      const existingSessions = await prisma.signingSession.findMany({
-        where: {
-          status: {
-            in: ['pending', 'signed'],
+      const existingSessions =
+        await prisma.signingSession.findMany({
+          where: {
+            status: {
+              in: ['pending', 'signed'],
+            },
           },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
 
+      /*
+       * Expire old pending sessions.
+       */
       for (const session of existingSessions) {
         if (
           session.status === 'pending' &&
@@ -84,32 +95,40 @@ export async function signingRoutes(app: FastifyInstance) {
       }
 
       /*
-       * Only one tablet signing session can be active at a time.
+       * Check again for an active session.
+       *
+       * A signed session is still active because staff
+       * has not confirmed it yet.
        */
       const activeSession = existingSessions.find(
         (session) =>
           session.status === 'signed' ||
-          (session.status === 'pending' &&
-            !isExpired(session.createdAt))
+          (
+            session.status === 'pending' &&
+            !isExpired(session.createdAt)
+          )
       );
 
       if (activeSession) {
         return reply.status(409).send({
           error:
-            'The tablet is currently in use. Please finish or cancel the current signing session first.',
+            'The tablet is currently in use. Please finish or confirm the current signing session first.',
         });
       }
 
-      const token = crypto.randomBytes(32).toString('hex');
+      const token = crypto
+        .randomBytes(32)
+        .toString('hex');
 
-      const session = await prisma.signingSession.create({
-        data: {
-          transactionId,
-          token,
-          releasedTo,
-          status: 'pending',
-        },
-      });
+      const session =
+        await prisma.signingSession.create({
+          data: {
+            transactionId,
+            token,
+            releasedTo,
+            status: 'pending',
+          },
+        });
 
       return reply.status(201).send({
         sessionId: session.id,
@@ -122,20 +141,26 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * Staff computer polls this endpoint to see the signing status
-   * and the live signature coming from the tablet.
+   * STAFF:
+   * Check the current signing session.
+   *
+   * The staff computer uses this to receive the live
+   * signature and detect when the claimant has submitted it.
    */
   app.get(
     '/api/signing/sessions/:id',
-    { preHandler: [authenticate, requireStaff] },
+    {
+      preHandler: [authenticate, requireStaff],
+    },
     async (request, reply) => {
       const { id } = request.params as {
         id: string;
       };
 
-      const session = await prisma.signingSession.findUnique({
-        where: { id },
-      });
+      const session =
+        await prisma.signingSession.findUnique({
+          where: { id },
+        });
 
       if (!session) {
         return reply.status(404).send({
@@ -167,7 +192,8 @@ export async function signingRoutes(app: FastifyInstance) {
         releasedTo: session.releasedTo,
         liveSignature: session.liveSignature,
         signature:
-          session.status === 'signed'
+          session.status === 'signed' ||
+          session.status === 'confirmed'
             ? session.liveSignature
             : null,
       };
@@ -175,19 +201,23 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * Cancel the current signing session.
+   * STAFF:
+   * Cancel a signing session.
    */
   app.delete(
     '/api/signing/sessions/:id',
-    { preHandler: [authenticate, requireStaff] },
+    {
+      preHandler: [authenticate, requireStaff],
+    },
     async (request, reply) => {
       const { id } = request.params as {
         id: string;
       };
 
-      const session = await prisma.signingSession.findUnique({
-        where: { id },
-      });
+      const session =
+        await prisma.signingSession.findUnique({
+          where: { id },
+        });
 
       if (!session) {
         return reply.status(404).send({
@@ -195,7 +225,14 @@ export async function signingRoutes(app: FastifyInstance) {
         });
       }
 
-      if (session.status === 'pending') {
+      /*
+       * A session can only be cancelled before staff
+       * confirms it.
+       */
+      if (
+        session.status === 'pending' ||
+        session.status === 'signed'
+      ) {
         await prisma.signingSession.update({
           where: { id },
           data: {
@@ -211,22 +248,39 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * Tablet checks for the current signing session.
+   * TABLET:
+   * Find the current active signing session.
    *
-   * This endpoint is public because the tablet does not log in
-   * to the staff/admin system.
+   * This endpoint is public because the tablet does not
+   * log into the staff/admin system.
+   *
+   * IMPORTANT:
+   * Both "pending" and "signed" sessions are returned.
+   *
+   * This allows the tablet to show:
+   *
+   * "Signature Required"
+   *
+   * while pending, and:
+   *
+   * "Signature Submitted"
+   *
+   * while waiting for staff confirmation.
    */
   app.get(
     '/api/signing/tablet/current',
     async (_request, reply) => {
-      const session = await prisma.signingSession.findFirst({
-        where: {
-          status: 'pending',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+      const session =
+        await prisma.signingSession.findFirst({
+          where: {
+            status: {
+              in: ['pending', 'signed'],
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
 
       if (!session) {
         return reply.send({
@@ -234,7 +288,16 @@ export async function signingRoutes(app: FastifyInstance) {
         });
       }
 
-      if (isExpired(session.createdAt)) {
+      /*
+       * Only expire sessions that are still pending.
+       *
+       * A signed session has already received a signature
+       * and should remain available for staff confirmation.
+       */
+      if (
+        session.status === 'pending' &&
+        isExpired(session.createdAt)
+      ) {
         await prisma.signingSession.update({
           where: { id: session.id },
           data: {
@@ -247,11 +310,12 @@ export async function signingRoutes(app: FastifyInstance) {
         });
       }
 
-      const transaction = await prisma.transaction.findUnique({
-        where: {
-          id: session.transactionId,
-        },
-      });
+      const transaction =
+        await prisma.transaction.findUnique({
+          where: {
+            id: session.transactionId,
+          },
+        });
 
       if (!transaction) {
         await prisma.signingSession.update({
@@ -271,20 +335,15 @@ export async function signingRoutes(app: FastifyInstance) {
           token: session.token,
           releasedTo: session.releasedTo,
           studentName: transaction.studentName,
+          status: session.status,
         },
       });
     }
   );
 
   /*
-   * Receive live signature progress from the tablet.
-   *
-   * IMPORTANT:
-   * An empty signature is allowed here.
-   *
-   * When the claimant taps "Clear Signature", the tablet sends
-   * an empty string. Saving that empty string clears the live
-   * preview on the staff computer.
+   * TABLET:
+   * Send the current signature drawing to the server.
    */
   app.post(
     '/api/signing/sessions/:token/progress',
@@ -302,11 +361,12 @@ export async function signingRoutes(app: FastifyInstance) {
           ? body.signature.trim()
           : '';
 
-      const session = await prisma.signingSession.findUnique({
-        where: {
-          token,
-        },
-      });
+      const session =
+        await prisma.signingSession.findUnique({
+          where: {
+            token,
+          },
+        });
 
       if (!session) {
         return reply.status(404).send({
@@ -316,7 +376,8 @@ export async function signingRoutes(app: FastifyInstance) {
 
       if (session.status !== 'pending') {
         return reply.status(400).send({
-          error: 'Signing session is no longer active',
+          error:
+            'Signing session is no longer active',
         });
       }
 
@@ -333,12 +394,6 @@ export async function signingRoutes(app: FastifyInstance) {
         });
       }
 
-      /*
-       * Save the current live drawing.
-       *
-       * This can be an empty string when the claimant clears
-       * the signature pad.
-       */
       await prisma.signingSession.update({
         where: {
           id: session.id,
@@ -355,7 +410,8 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * Final signature submission from the tablet.
+   * TABLET:
+   * Submit the final signature.
    */
   app.post(
     '/api/signing/sessions/:token/sign',
@@ -373,20 +429,18 @@ export async function signingRoutes(app: FastifyInstance) {
           ? body.signature.trim()
           : '';
 
-      /*
-       * Unlike /progress, the final signature cannot be empty.
-       */
       if (!signature) {
         return reply.status(400).send({
           error: 'Signature is required',
         });
       }
 
-      const session = await prisma.signingSession.findUnique({
-        where: {
-          token,
-        },
-      });
+      const session =
+        await prisma.signingSession.findUnique({
+          where: {
+            token,
+          },
+        });
 
       if (!session) {
         return reply.status(404).send({
@@ -396,7 +450,8 @@ export async function signingRoutes(app: FastifyInstance) {
 
       if (session.status !== 'pending') {
         return reply.status(400).send({
-          error: 'Signing session is no longer active',
+          error:
+            'Signing session is no longer active',
         });
       }
 
@@ -414,7 +469,10 @@ export async function signingRoutes(app: FastifyInstance) {
       }
 
       /*
-       * Store the final signature on the transaction.
+       * Save the final signature to the transaction.
+       *
+       * The transaction itself is NOT released yet.
+       * Staff must still confirm the signature.
        */
       await prisma.transaction.update({
         where: {
@@ -426,7 +484,9 @@ export async function signingRoutes(app: FastifyInstance) {
       });
 
       /*
-       * Mark the signing session as completed.
+       * Mark the session as signed.
+       *
+       * It remains active until staff confirms it.
        */
       await prisma.signingSession.update({
         where: {
@@ -442,6 +502,93 @@ export async function signingRoutes(app: FastifyInstance) {
       return {
         success: true,
         status: 'signed',
+      };
+    }
+  );
+
+  /*
+   * STAFF:
+   * Confirm the signature after reviewing it.
+   *
+   * This changes the signing session from "signed"
+   * to "confirmed".
+   *
+   * The actual transaction release is handled separately
+   * by the existing transaction release endpoint.
+   */
+  app.post(
+    '/api/signing/sessions/:id/confirm',
+    {
+      preHandler: [authenticate, requireStaff],
+    },
+    async (request, reply) => {
+      const { id } = request.params as {
+        id: string;
+      };
+
+      const session =
+        await prisma.signingSession.findUnique({
+          where: { id },
+        });
+
+      if (!session) {
+        return reply.status(404).send({
+          error: 'Signing session not found',
+        });
+      }
+
+      if (session.status !== 'signed') {
+        return reply.status(400).send({
+          error:
+            'Signature must be submitted before it can be confirmed.',
+        });
+      }
+
+      await prisma.signingSession.update({
+        where: {
+          id: session.id,
+        },
+        data: {
+          status: 'confirmed',
+        },
+      });
+
+      return {
+        success: true,
+        status: 'confirmed',
+      };
+    }
+  );
+
+  /*
+   * TABLET:
+   * Check whether staff has confirmed the signature.
+   *
+   * This endpoint is public because the tablet does not
+   * log into the staff/admin system.
+   */
+  app.get(
+    '/api/signing/tablet/status/:token',
+    async (request, reply) => {
+      const { token } = request.params as {
+        token: string;
+      };
+
+      const session =
+        await prisma.signingSession.findUnique({
+          where: {
+            token,
+          },
+        });
+
+      if (!session) {
+        return reply.status(404).send({
+          error: 'Signing session not found',
+        });
+      }
+
+      return {
+        status: session.status,
       };
     }
   );

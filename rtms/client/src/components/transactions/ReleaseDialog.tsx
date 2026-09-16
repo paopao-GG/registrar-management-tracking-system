@@ -27,8 +27,12 @@ export function ReleaseDialog({
   const [releasedTo, setReleasedTo] = useState('');
   const [showSuggestion, setShowSuggestion] = useState(false);
 
-  const [sendingToTablet, setSendingToTablet] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sendingToTablet, setSendingToTablet] =
+    useState(false);
+
+  const [sessionId, setSessionId] = useState<string | null>(
+    null
+  );
 
   const [signatureReceived, setSignatureReceived] =
     useState(false);
@@ -62,8 +66,8 @@ export function ReleaseDialog({
   /*
    * Poll the signing session.
    *
-   * This receives the signature while the claimant is
-   * still drawing on the tablet.
+   * This receives the live signature and detects when
+   * the claimant has submitted it.
    */
   useEffect(() => {
     if (!sessionId) return;
@@ -82,24 +86,36 @@ export function ReleaseDialog({
 
         /*
          * Always update the live preview.
-         *
-         * If the tablet sends an empty signature after
-         * Clear Signature is pressed, this becomes null
-         * and the old preview disappears.
          */
-        setLiveSignature(data.liveSignature || null);
+        setLiveSignature(
+          data.liveSignature || null
+        );
 
+        /*
+         * The claimant has finished signing.
+         */
         if (data.status === 'signed') {
           setSignatureReceived(true);
+
           setSignature(
-            data.signature || data.liveSignature || null
+            data.signature ||
+              data.liveSignature ||
+              null
           );
+
           setLiveSignature(
-            data.signature || data.liveSignature || null
+            data.signature ||
+              data.liveSignature ||
+              null
           );
+
           setSendingToTablet(false);
         }
 
+        /*
+         * These states mean the signing session is no
+         * longer available.
+         */
         if (
           data.status === 'expired' ||
           data.status === 'cancelled'
@@ -124,10 +140,10 @@ export function ReleaseDialog({
 
     checkSession();
 
-    /*
-     * 500 ms keeps the preview reasonably live.
-     */
-    const interval = setInterval(checkSession, 500);
+    const interval = setInterval(
+      checkSession,
+      500
+    );
 
     return () => {
       mounted = false;
@@ -172,7 +188,7 @@ export function ReleaseDialog({
   };
 
   /*
-   * Final release.
+   * Confirm the signature and release the transaction.
    */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -194,6 +210,10 @@ export function ReleaseDialog({
     setLoading(true);
 
     try {
+      /*
+       * First release the transaction using the existing
+       * transaction release workflow.
+       */
       await api.patch(
         `/transactions/${transactionId}/release`,
         {
@@ -201,6 +221,16 @@ export function ReleaseDialog({
           signature,
         }
       );
+
+      /*
+       * Then tell the tablet that staff has confirmed
+       * the signature.
+       */
+      if (sessionId) {
+        await api.post(
+          `/signing/sessions/${sessionId}/confirm`
+        );
+      }
 
       setReleasedTo('');
       setShowSuggestion(false);
@@ -262,7 +292,9 @@ export function ReleaseDialog({
       setShowSuggestion(
         studentName
           .toLowerCase()
-          .includes(value.trim().toLowerCase())
+          .includes(
+            value.trim().toLowerCase()
+          )
       );
     } else {
       setShowSuggestion(false);
@@ -280,6 +312,7 @@ export function ReleaseDialog({
 
           setReleasedTo('');
           setShowSuggestion(false);
+
           onClose();
         }
       }}

@@ -9,21 +9,28 @@ interface TabletSession {
   token: string;
   releasedTo: string;
   studentName: string;
+  status: 'pending' | 'signed' | 'confirmed' | 'cancelled' | 'expired';
 }
 
 export function TabletSignPage() {
   const [session, setSession] = useState<TabletSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [completed, setCompleted] = useState(false);
+
+  const [submitted, setSubmitted] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   const sigRef = useRef<SignaturePadRef>(null);
 
   /*
-   * Look for a new signing session.
+   * Check for the current signing session.
+   *
+   * The tablet keeps checking while it is waiting for
+   * a new signing request.
    */
   useEffect(() => {
-    if (completed) return;
+    if (submitted || confirmed) return;
 
     let mounted = true;
 
@@ -33,9 +40,27 @@ export function TabletSignPage() {
 
         if (!mounted) return;
 
-        setSession(response.data.session ?? null);
+        const currentSession = response.data.session ?? null;
+
+        if (!currentSession) {
+          setSession(null);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
+        setSession(currentSession);
         setError(null);
         setLoading(false);
+
+        /*
+         * If the claimant already submitted the signature
+         * before the tablet page refreshed, keep the tablet
+         * on the "Signature Submitted" screen.
+         */
+        if (currentSession.status === 'signed') {
+          setSubmitted(true);
+        }
       } catch (err) {
         console.error('Failed to check tablet session', err);
 
@@ -54,24 +79,23 @@ export function TabletSignPage() {
       mounted = false;
       clearInterval(interval);
     };
-  }, [completed]);
+  }, [submitted, confirmed]);
 
   /*
-   * Send the current drawing to the server every 500 ms.
+   * Send the current signature drawing to the server.
    *
-   * An empty signature is also sent when the claimant
-   * clears the signature pad. This allows the staff computer
-   * to clear its live preview.
+   * This allows the staff computer to display a live
+   * signature preview while the claimant is signing.
    */
   useEffect(() => {
-    if (!session || completed) return;
+    if (!session || submitted || confirmed) return;
+
+    if (session.status !== 'pending') return;
 
     const sendProgress = async () => {
       const pad = sigRef.current;
 
-      if (!pad) {
-        return;
-      }
+      if (!pad) return;
 
       try {
         const signature = pad.isEmpty()
@@ -80,12 +104,13 @@ export function TabletSignPage() {
 
         await api.post(
           `/signing/sessions/${session.token}/progress`,
-          {
-            signature,
-          }
+          { signature }
         );
       } catch (err) {
-        console.error('Failed to send signature progress', err);
+        console.error(
+          'Failed to send signature progress',
+          err
+        );
       }
     };
 
@@ -94,8 +119,88 @@ export function TabletSignPage() {
     return () => {
       clearInterval(interval);
     };
-  }, [session, completed]);
+  }, [session, submitted, confirmed]);
 
+  /*
+   * After the staff confirms the signature, show the
+   * confirmation message for 3 seconds and then return
+   * to the Ready for Signature screen.
+   */
+  useEffect(() => {
+    if (!confirmed) return;
+
+    const timeout = setTimeout(() => {
+      setConfirmed(false);
+      setSubmitted(false);
+      setSession(null);
+      setError(null);
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [confirmed]);
+
+  /*
+   * After the claimant submits their signature, wait for
+   * the staff computer to confirm it.
+   */
+  useEffect(() => {
+    if (!submitted || !session) return;
+
+    let mounted = true;
+
+    const checkConfirmation = async () => {
+      try {
+        const response = await api.get(
+          `/signing/tablet/status/${session.token}`
+        );
+
+        if (!mounted) return;
+
+        const status = response.data.status;
+
+        if (status === 'confirmed') {
+          setConfirmed(true);
+          return;
+        }
+
+        if (
+          status === 'cancelled' ||
+          status === 'expired'
+        ) {
+          setSubmitted(false);
+          setConfirmed(false);
+          setSession(null);
+
+          setError(
+            'The tablet signing session has ended.'
+          );
+        }
+      } catch (err) {
+        console.error(
+          'Failed to check signature confirmation',
+          err
+        );
+      }
+    };
+
+    checkConfirmation();
+
+    const interval = setInterval(
+      checkConfirmation,
+      1000
+    );
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [submitted, session]);
+
+  /*
+   * Submit the final signature from the tablet.
+   */
   const handleDone = async () => {
     if (!session) return;
 
@@ -118,9 +223,23 @@ export function TabletSignPage() {
         }
       );
 
-      setCompleted(true);
+      /*
+       * The claimant has submitted the signature.
+       *
+       * Do NOT return to Ready for Signature yet.
+       * The tablet must wait for staff confirmation.
+       */
+      setSubmitted(true);
+
+      setSession({
+        ...session,
+        status: 'signed',
+      });
     } catch (err: any) {
-      console.error('Failed to submit signature', err);
+      console.error(
+        'Failed to submit signature',
+        err
+      );
 
       setError(
         err.response?.data?.error ||
@@ -129,6 +248,9 @@ export function TabletSignPage() {
     }
   };
 
+  /*
+   * Loading screen.
+   */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -145,29 +267,59 @@ export function TabletSignPage() {
     );
   }
 
-  if (completed) {
+  /*
+   * Final confirmation after staff confirms the release.
+   */
+  if (confirmed) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="w-full max-w-xl text-center space-y-4">
           <div className="text-5xl">✓</div>
 
           <h1 className="text-3xl font-semibold">
-            Signature Received
+            Signature Confirmed
           </h1>
 
           <p className="text-muted-foreground">
-            The signature has been sent to the Registrar's
-            workstation.
+            Your signature has been successfully recorded.
           </p>
 
           <p className="text-sm text-muted-foreground">
-            You may now return the tablet to the staff.
+            Please return the tablet to the Registrar staff.
           </p>
         </div>
       </div>
     );
   }
 
+  /*
+   * Signature submitted, waiting for staff confirmation.
+   */
+  if (submitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-xl text-center space-y-4">
+          <div className="text-5xl">✓</div>
+
+          <h1 className="text-3xl font-semibold">
+            Signature Submitted
+          </h1>
+
+          <p className="text-muted-foreground">
+            Your signature has been sent to the Registrar staff.
+          </p>
+
+          <p className="text-sm text-muted-foreground">
+            Please wait for staff confirmation.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * No active signing session.
+   */
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -176,7 +328,7 @@ export function TabletSignPage() {
             RTAMS Signature
           </h1>
 
-          <p className="text-muted-foreground">
+          <p className="text-xl font-medium">
             Ready for Signature
           </p>
 
@@ -195,6 +347,9 @@ export function TabletSignPage() {
     );
   }
 
+  /*
+   * Active signing session.
+   */
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-2xl space-y-6">
@@ -228,15 +383,13 @@ export function TabletSignPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
-          <button
-            type="button"
-            onClick={handleDone}
-            className="rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Done
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleDone}
+          className="w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Done
+        </button>
       </div>
     </div>
   );
