@@ -243,10 +243,6 @@ export function AdminDashboard() {
                 Processing
               </option>
 
-              <option value="Ready for Review">
-                Ready for Review / Signing
-              </option>
-
               <option value="Ready for Release">
                 Ready for Release
               </option>
