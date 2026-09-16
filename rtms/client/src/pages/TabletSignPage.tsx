@@ -9,25 +9,38 @@ interface TabletSession {
   token: string;
   releasedTo: string;
   studentName: string;
-  status: 'pending' | 'signed' | 'confirmed' | 'cancelled' | 'expired';
+  status:
+    | 'pending'
+    | 'signed'
+    | 'confirmed'
+    | 'cancelled'
+    | 'expired';
 }
 
 export function TabletSignPage() {
-  const [session, setSession] = useState<TabletSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] =
+    useState<TabletSession | null>(null);
 
-  const [submitted, setSubmitted] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] =
+    useState(false);
 
-  const sigRef = useRef<SignaturePadRef>(null);
+  const [confirmed, setConfirmed] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const sigRef =
+    useRef<SignaturePadRef>(null);
 
   /*
    * Check for the current signing session.
    *
-   * The tablet keeps checking while it is waiting for
-   * a new signing request.
+   * The tablet checks frequently so a new signing
+   * request appears with very little delay.
    */
   useEffect(() => {
     if (submitted || confirmed) return;
@@ -36,11 +49,14 @@ export function TabletSignPage() {
 
     const checkForSession = async () => {
       try {
-        const response = await api.get('/signing/tablet/current');
+        const response = await api.get(
+          '/signing/tablet/current'
+        );
 
         if (!mounted) return;
 
-        const currentSession = response.data.session ?? null;
+        const currentSession =
+          response.data.session ?? null;
 
         if (!currentSession) {
           setSession(null);
@@ -56,24 +72,36 @@ export function TabletSignPage() {
         /*
          * If the claimant already submitted the signature
          * before the tablet page refreshed, keep the tablet
-         * on the "Signature Submitted" screen.
+         * on the Signature Submitted screen.
          */
         if (currentSession.status === 'signed') {
           setSubmitted(true);
         }
       } catch (err) {
-        console.error('Failed to check tablet session', err);
+        console.error(
+          'Failed to check tablet session',
+          err
+        );
 
         if (!mounted) return;
 
-        setError('Unable to connect to RTAMS.');
+        setError(
+          'Unable to connect to RTAMS.'
+        );
+
         setLoading(false);
       }
     };
 
     checkForSession();
 
-    const interval = setInterval(checkForSession, 2000);
+    /*
+     * Faster session detection.
+     */
+    const interval = setInterval(
+      checkForSession,
+      500
+    );
 
     return () => {
       mounted = false;
@@ -84,13 +112,21 @@ export function TabletSignPage() {
   /*
    * Send the current signature drawing to the server.
    *
-   * This allows the staff computer to display a live
-   * signature preview while the claimant is signing.
+   * This gives the staff computer a near-live
+   * signature preview.
    */
   useEffect(() => {
-    if (!session || submitted || confirmed) return;
+    if (
+      !session ||
+      submitted ||
+      confirmed
+    ) {
+      return;
+    }
 
-    if (session.status !== 'pending') return;
+    if (session.status !== 'pending') {
+      return;
+    }
 
     const sendProgress = async () => {
       const pad = sigRef.current;
@@ -114,7 +150,13 @@ export function TabletSignPage() {
       }
     };
 
-    const interval = setInterval(sendProgress, 500);
+    /*
+     * Faster live signature synchronization.
+     */
+    const interval = setInterval(
+      sendProgress,
+      250
+    );
 
     return () => {
       clearInterval(interval);
@@ -122,9 +164,8 @@ export function TabletSignPage() {
   }, [session, submitted, confirmed]);
 
   /*
-   * After the staff confirms the signature, show the
-   * confirmation message for 3 seconds and then return
-   * to the Ready for Signature screen.
+   * After staff confirms the signature, show
+   * the confirmation message for 3 seconds.
    */
   useEffect(() => {
     if (!confirmed) return;
@@ -134,6 +175,7 @@ export function TabletSignPage() {
       setSubmitted(false);
       setSession(null);
       setError(null);
+      setLoading(false);
     }, 3000);
 
     return () => {
@@ -142,8 +184,8 @@ export function TabletSignPage() {
   }, [confirmed]);
 
   /*
-   * After the claimant submits their signature, wait for
-   * the staff computer to confirm it.
+   * After the claimant submits their signature,
+   * wait for staff confirmation.
    */
   useEffect(() => {
     if (!submitted || !session) return;
@@ -158,7 +200,8 @@ export function TabletSignPage() {
 
         if (!mounted) return;
 
-        const status = response.data.status;
+        const status =
+          response.data.status;
 
         if (status === 'confirmed') {
           setConfirmed(true);
@@ -187,9 +230,12 @@ export function TabletSignPage() {
 
     checkConfirmation();
 
+    /*
+     * React quickly when staff confirms the release.
+     */
     const interval = setInterval(
       checkConfirmation,
-      1000
+      250
     );
 
     return () => {
@@ -207,14 +253,17 @@ export function TabletSignPage() {
     const pad = sigRef.current;
 
     if (!pad || pad.isEmpty()) {
-      alert('Please provide your signature.');
+      alert(
+        'Please provide your signature.'
+      );
       return;
     }
 
     try {
       setError(null);
 
-      const signature = pad.getDataURL();
+      const signature =
+        pad.getDataURL();
 
       await api.post(
         `/signing/sessions/${session.token}/sign`,
@@ -224,10 +273,10 @@ export function TabletSignPage() {
       );
 
       /*
-       * The claimant has submitted the signature.
+       * Update the tablet immediately.
        *
-       * Do NOT return to Ready for Signature yet.
-       * The tablet must wait for staff confirmation.
+       * The tablet does not need to wait for another
+       * polling request to show Signature Submitted.
        */
       setSubmitted(true);
 
@@ -268,13 +317,16 @@ export function TabletSignPage() {
   }
 
   /*
-   * Final confirmation after staff confirms the release.
+   * Final confirmation after staff confirms
+   * the release.
    */
   if (confirmed) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="w-full max-w-xl text-center space-y-4">
-          <div className="text-5xl">✓</div>
+          <div className="text-5xl">
+            ✓
+          </div>
 
           <h1 className="text-3xl font-semibold">
             Signature Confirmed
@@ -299,7 +351,9 @@ export function TabletSignPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="w-full max-w-xl text-center space-y-4">
-          <div className="text-5xl">✓</div>
+          <div className="text-5xl">
+            ✓
+          </div>
 
           <h1 className="text-3xl font-semibold">
             Signature Submitted

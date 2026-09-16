@@ -23,7 +23,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
 
             {/* Tablet signing route - public */}
-            <Route path="/tablet-sign" element={<TabletSignPage />} />
+            <Route path="/sign" element={<TabletSignPage />} />
 
             {/* Staff routes */}
             <Route

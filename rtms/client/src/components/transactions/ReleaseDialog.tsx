@@ -66,8 +66,8 @@ export function ReleaseDialog({
   /*
    * Poll the signing session.
    *
-   * This receives the live signature and detects when
-   * the claimant has submitted it.
+   * The short polling interval makes the staff screen
+   * react quickly when the claimant finishes signing.
    */
   useEffect(() => {
     if (!sessionId) return;
@@ -85,7 +85,7 @@ export function ReleaseDialog({
         const data = response.data;
 
         /*
-         * Always update the live preview.
+         * Always update the live signature preview.
          */
         setLiveSignature(
           data.liveSignature || null
@@ -97,18 +97,13 @@ export function ReleaseDialog({
         if (data.status === 'signed') {
           setSignatureReceived(true);
 
-          setSignature(
+          const finalSignature =
             data.signature ||
-              data.liveSignature ||
-              null
-          );
+            data.liveSignature ||
+            null;
 
-          setLiveSignature(
-            data.signature ||
-              data.liveSignature ||
-              null
-          );
-
+          setSignature(finalSignature);
+          setLiveSignature(finalSignature);
           setSendingToTablet(false);
         }
 
@@ -140,9 +135,13 @@ export function ReleaseDialog({
 
     checkSession();
 
+    /*
+     * Check every 200 ms so the staff screen reacts
+     * almost immediately after the claimant taps Done.
+     */
     const interval = setInterval(
       checkSession,
-      500
+      200
     );
 
     return () => {
