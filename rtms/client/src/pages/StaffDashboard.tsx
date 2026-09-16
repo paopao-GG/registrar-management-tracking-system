@@ -22,13 +22,16 @@ import {
 export function StaffDashboard() {
   const { user } = useAuth();
 
-  const [todayTransactions, setTodayTransactions] =
-    useState<any[]>([]);
-
-  const [incompleteTransactions, setIncompleteTransactions] =
+  const [transactions, setTransactions] =
     useState<any[]>([]);
 
   const [todayCompleted, setTodayCompleted] = useState(0);
+
+  const [incompleteCount, setIncompleteCount] = useState(0);
+
+  const [processingCount, setProcessingCount] = useState(0);
+
+  const [unclaimedCount, setUnclaimedCount] = useState(0);
 
   const [releaseTransaction, setReleaseTransaction] =
     useState<{
@@ -41,11 +44,18 @@ export function StaffDashboard() {
 
   const [statusFilter, setStatusFilter] = useState('');
 
+  const [dateFilter, setDateFilter] =
+    useState('today');
+
+  const [customDate, setCustomDate] =
+    useState('');
+
   const [searchName, setSearchName] = useState('');
 
   const [debouncedSearch, setDebouncedSearch] =
     useState('');
 
+  // Delay search slightly while typing.
   useEffect(() => {
     const timer = setTimeout(
       () => setDebouncedSearch(searchName),
@@ -55,191 +65,170 @@ export function StaffDashboard() {
     return () => clearTimeout(timer);
   }, [searchName]);
 
+  const getPhilippineDate = () => {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+    }).format(new Date());
+  };
+
+  const getDateRange = () => {
+    const today = getPhilippineDate();
+
+    if (dateFilter === 'today') {
+      return {
+        startDate: today,
+        endDate: today,
+      };
+    }
+
+    if (dateFilter === 'yesterday') {
+      const date = new Date(
+        `${today}T00:00:00+08:00`
+      );
+
+      date.setUTCDate(date.getUTCDate() - 1);
+
+      const yesterday = new Intl.DateTimeFormat(
+        'en-CA',
+        {
+          timeZone: 'Asia/Manila',
+        }
+      ).format(date);
+
+      return {
+        startDate: yesterday,
+        endDate: yesterday,
+      };
+    }
+
+    if (dateFilter === 'custom' && customDate) {
+      return {
+        startDate: customDate,
+        endDate: customDate,
+      };
+    }
+
+    return {};
+  };
+
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const today = new Date()
-      .toISOString()
-      .split('T')[0];
+    const dateRange = getDateRange();
+
+    const searchParams: any = {};
+
+    if (debouncedSearch) {
+      searchParams.search = debouncedSearch;
+    }
+
+    if (dateRange.startDate) {
+      searchParams.startDate = dateRange.startDate;
+    }
+
+    if (dateRange.endDate) {
+      searchParams.endDate = dateRange.endDate;
+    }
+
+    if (statusFilter) {
+      searchParams.status = statusFilter;
+    }
 
     const [
-      todayRes,
+      transactionsRes,
       pendingRes,
       processingRes,
       readyRes,
       releasedTodayRes,
     ] = await Promise.all([
+      // Main transaction table
       api.get('/transactions', {
-        params: {
-          startDate: today,
-          endDate: today,
-        },
+        params: searchParams,
       }),
 
+      // Pending count
       api.get('/transactions', {
         params: {
           status: 'Pending',
         },
       }),
 
+      // Processing count
       api.get('/transactions', {
         params: {
           status: 'Processing',
         },
       }),
 
+      // Ready for Release count
       api.get('/transactions', {
         params: {
           status: 'Ready for Release',
         },
       }),
 
+      // Completed today
       api.get('/transactions', {
         params: {
           status: 'Released',
-          startDate: today,
-          endDate: today,
+          ...getDateRangeForToday(),
         },
       }),
     ]);
 
-    setTodayTransactions(
-      todayRes.data.transactions
+    setTransactions(
+      transactionsRes.data.transactions
     );
 
-    setIncompleteTransactions([
-      ...pendingRes.data.transactions,
-      ...processingRes.data.transactions,
-      ...readyRes.data.transactions,
-    ]);
+    setProcessingCount(
+      processingRes.data.total
+    );
+
+    setUnclaimedCount(
+      readyRes.data.total
+    );
+
+    setIncompleteCount(
+      pendingRes.data.total +
+        processingRes.data.total +
+        readyRes.data.total
+    );
 
     setTodayCompleted(
-      releasedTodayRes.data.transactions.length
+      releasedTodayRes.data.total
     );
-  }, [user]);
+  }, [
+    user,
+    debouncedSearch,
+    statusFilter,
+    dateFilter,
+    customDate,
+  ]);
 
-  useEffect(() => {
-    if (!user) return;
+  const getDateRangeForToday = () => {
+    const today = getPhilippineDate();
 
-    const fetchIncomplete = async () => {
-      const params: any = {};
-
-      if (debouncedSearch) {
-        params.search = debouncedSearch;
-      }
-
-      const [
-        pendingRes,
-        processingRes,
-        readyRes,
-      ] = await Promise.all([
-        api.get('/transactions', {
-          params: {
-            ...params,
-            status: 'Pending',
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            ...params,
-            status: 'Processing',
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            ...params,
-            status: 'Ready for Release',
-          },
-        }),
-      ]);
-
-      setIncompleteTransactions([
-        ...pendingRes.data.transactions,
-        ...processingRes.data.transactions,
-        ...readyRes.data.transactions,
-      ]);
+    return {
+      startDate: today,
+      endDate: today,
     };
+  };
 
-    fetchIncomplete();
-  }, [user, debouncedSearch]);
-
+  // Initial load and refresh when filters/search change.
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Automatically refresh dashboard data every 10 seconds
-useEffect(() => {
-  const interval = setInterval(async () => {
-    try {
-      await fetchData();
+  // Automatically refresh every 10 seconds.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData().catch(() => {
+        /* silent */
+      });
+    }, 10_000);
 
-      // Re-apply the current search filter after refreshing
-      const params: any = {};
-
-      if (debouncedSearch) {
-        params.search = debouncedSearch;
-      }
-
-      const [
-        pendingRes,
-        processingRes,
-        readyRes,
-      ] = await Promise.all([
-        api.get('/transactions', {
-          params: {
-            ...params,
-            status: 'Pending',
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            ...params,
-            status: 'Processing',
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            ...params,
-            status: 'Ready for Release',
-          },
-        }),
-      ]);
-
-      setIncompleteTransactions([
-        ...pendingRes.data.transactions,
-        ...processingRes.data.transactions,
-        ...readyRes.data.transactions,
-      ]);
-    } catch {
-      /* silent */
-    }
-  }, 10_000);
-
-  return () => clearInterval(interval);
-}, [fetchData, debouncedSearch]);
-
-  const incompleteCount =
-    incompleteTransactions.length;
-
-  const processingCount =
-    incompleteTransactions.filter(
-      (t) => t.status === 'Processing'
-    ).length;
-
-  const unclaimedCount =
-    incompleteTransactions.filter(
-      (t) => t.status === 'Ready for Release'
-    ).length;
-
-  const filteredToday = statusFilter
-    ? todayTransactions.filter(
-        (t) => t.status === statusFilter
-      )
-    : todayTransactions;
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   return (
     <div className="space-y-6">
@@ -325,69 +314,98 @@ useEffect(() => {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-col gap-3">
             <CardTitle className="text-lg">
-              Today's Requests
+              Transactions
             </CardTitle>
 
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-auto"
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value)
-              }
-            >
-              <option value="">All Statuses</option>
-              <option value="Pending">Pending</option>
-              <option value="Processing">
-                Processing
-              </option>
-              <option value="Ready for Release">
-                Ready for Release
-              </option>
-              <option value="Released">Released</option>
-            </select>
+            <div className="flex flex-col md:flex-row gap-3">
+              {/* Status */}
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full md:w-auto"
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value)
+                }
+              >
+                <option value="">
+                  All Statuses
+                </option>
+
+                <option value="Pending">
+                  Pending
+                </option>
+
+                <option value="Processing">
+                  Processing
+                </option>
+
+                <option value="Ready for Release">
+                  Ready for Release
+                </option>
+
+                <option value="Released">
+                  Released
+                </option>
+              </select>
+
+              {/* Date */}
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full md:w-auto"
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+
+                  if (e.target.value !== 'custom') {
+                    setCustomDate('');
+                  }
+                }}
+              >
+                <option value="today">
+                  Today
+                </option>
+
+                <option value="yesterday">
+                  Yesterday
+                </option>
+
+                <option value="custom">
+                  Custom Date
+                </option>
+
+                <option value="all">
+                  All Dates
+                </option>
+              </select>
+
+              {/* Custom date */}
+              {dateFilter === 'custom' && (
+                <Input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) =>
+                    setCustomDate(e.target.value)
+                  }
+                  className="w-full md:w-48"
+                />
+              )}
+
+              {/* Student search */}
+              <Input
+                className="w-full md:max-w-xs"
+                placeholder="Search by student name..."
+                value={searchName}
+                onChange={(e) =>
+                  setSearchName(e.target.value)
+                }
+              />
+            </div>
           </div>
         </CardHeader>
 
         <CardContent>
           <TransactionTable
-            transactions={filteredToday}
-            onStartProcessing={(id) =>
-              setStartProcessingId(id)
-            }
-            onRelease={(id, studentName) =>
-              setReleaseTransaction({
-                id,
-                studentName,
-              })
-            }
-            showActions={true}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <CardTitle className="text-lg">
-              Incomplete / Unclaimed Documents
-            </CardTitle>
-
-            <Input
-              className="w-full sm:max-w-xs"
-              placeholder="Search by student name..."
-              value={searchName}
-              onChange={(e) =>
-                setSearchName(e.target.value)
-              }
-            />
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <TransactionTable
-            transactions={incompleteTransactions}
+            transactions={transactions}
             onStartProcessing={(id) =>
               setStartProcessingId(id)
             }

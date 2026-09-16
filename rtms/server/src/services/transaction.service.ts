@@ -147,14 +147,26 @@ export async function getTransactions(filters: QueryFilters) {
   if (filters.search) where.studentName = { contains: filters.search, mode: 'insensitive' };
 
   if (filters.startDate || filters.endDate) {
-    where.preparedAt = {};
-    if (filters.startDate) where.preparedAt.gte = new Date(filters.startDate);
-    if (filters.endDate) {
-      const end = new Date(filters.endDate);
-      end.setHours(23, 59, 59, 999);
-      where.preparedAt.lte = end;
-    }
+  where.preparedAt = {};
+
+  if (filters.startDate) {
+    where.preparedAt.gte = new Date(
+      `${filters.startDate}T00:00:00+08:00`
+    );
   }
+
+  if (filters.endDate) {
+    const endDate = new Date(
+      `${filters.endDate}T00:00:00+08:00`
+    );
+
+    // Exclusive upper boundary: start of the following
+    // Philippine calendar day.
+    endDate.setUTCDate(endDate.getUTCDate() + 1);
+
+    where.preparedAt.lt = endDate;
+  }
+}
 
   const page = filters.page || 1;
   const limit = filters.limit || 50;

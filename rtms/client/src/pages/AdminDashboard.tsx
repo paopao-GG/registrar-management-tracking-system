@@ -39,7 +39,9 @@ export function AdminDashboard() {
       }),
     ]);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Manila',
+}).format(new Date());
 
     const todayReleasedRes = await api.get('/transactions', {
       params: {
@@ -86,18 +88,18 @@ export function AdminDashboard() {
     fetchData();
   }, [fetchData]);
 
-  // Poll stats every 30s so admin sees new requests without refresh
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        await fetchStats();
-      } catch {
-        /* silent */
-      }
-    }, 30_000);
+  // Automatically refresh the dashboard every 10 seconds
+useEffect(() => {
+  const interval = setInterval(async () => {
+    try {
+      await fetchData();
+    } catch {
+      /* silent */
+    }
+  }, 10_000);
 
-    return () => clearInterval(interval);
-  }, [fetchStats]);
+  return () => clearInterval(interval);
+}, [fetchData]);
 
   return (
     <div className="space-y-6">
