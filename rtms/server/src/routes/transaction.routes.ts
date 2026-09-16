@@ -1,7 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin, requireStaff } from '../middleware/roles.js';
-import { createTransactionSchema, releaseTransactionSchema } from '@rtams/shared';
+import {
+  createTransactionSchema,
+  releaseTransactionSchema,
+} from '@rtams/shared';
 import { prisma } from '../config/db.js';
 import { toApiTransaction } from '../utils/doc-mapper.js';
 import {
@@ -17,6 +20,7 @@ export async function transactionRoutes(app: FastifyInstance) {
 
   app.get('/api/transactions', async (request) => {
     const query = request.query as any;
+
     return getTransactions({
       status: query.status,
       preparedBy: query.preparedBy,
@@ -30,15 +34,25 @@ export async function transactionRoutes(app: FastifyInstance) {
 
   app.get('/api/transactions/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const transaction = await prisma.transaction.findUnique({ where: { id } });
-    if (!transaction) return reply.status(404).send({ error: 'Not found' });
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+    });
+
+    if (!transaction) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+
     return toApiTransaction(transaction);
   });
 
   app.post('/api/transactions', async (request, reply) => {
     const parsed = createTransactionSchema.safeParse(request.body);
+
     if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error.issues[0].message });
+      return reply
+        .status(400)
+        .send({ error: parsed.error.issues[0].message });
     }
 
     try {
@@ -47,53 +61,87 @@ export async function transactionRoutes(app: FastifyInstance) {
         userId: request.user.id,
         userName: request.user.name,
       });
+
       return reply.status(201).send(transaction);
     } catch (error: any) {
       return reply.status(400).send({ error: error.message });
     }
   });
 
-  app.patch('/api/transactions/:id/start', {
-    preHandler: requireStaff,
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    try {
-      return await startProcessing(id, request.user.id, request.user.name);
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message });
-    }
-  });
+  // Start Processing - Staff
+  app.patch(
+    '/api/transactions/:id/start',
+    {
+      preHandler: requireStaff,
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
 
-  app.patch('/api/transactions/:id/sign', {
-    preHandler: requireAdmin,
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    try {
-      const transaction = await signTransaction(id, request.user.id, request.user.name);
-      return transaction;
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message });
+      try {
+        return await startProcessing(
+          id,
+          request.user.id,
+          request.user.name
+        );
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
+      }
     }
-  });
+  );
 
-  app.patch('/api/transactions/:id/release', { preHandler: requireStaff }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const parsed = releaseTransactionSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error.issues[0].message });
-    }
+  // Sign - Admin only
+  app.patch(
+    '/api/transactions/:id/sign',
+    {
+      preHandler: requireAdmin,
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
 
-    try {
-      const transaction = await releaseTransaction(
-        id,
-        parsed.data.releasedTo,
-        parsed.data.signature,
-        request.user.id,
-        request.user.name
-      );
-      return transaction;
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message });
+      try {
+        const transaction = await signTransaction(
+          id,
+          request.user.id,
+          request.user.name
+        );
+
+        return transaction;
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
+      }
     }
-  });
+  );
+
+  // Release - Staff
+  app.patch(
+    '/api/transactions/:id/release',
+    {
+      preHandler: requireStaff,
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      const parsed = releaseTransactionSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: parsed.error.issues[0].message });
+      }
+
+      try {
+        const transaction = await releaseTransaction(
+          id,
+          parsed.data.releasedTo,
+          parsed.data.signature,
+          request.user.id,
+          request.user.name
+        );
+
+        return transaction;
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
+      }
+    }
+  );
 }

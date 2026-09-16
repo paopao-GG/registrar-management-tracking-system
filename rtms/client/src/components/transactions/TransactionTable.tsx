@@ -39,6 +39,7 @@ interface Props {
   onRelease?: (id: string, studentName: string) => void;
   onStartProcessing?: (id: string) => void;
   showActions?: boolean;
+  userRole?: string;
 }
 
 const statusVariant = (status: string) => {
@@ -62,6 +63,7 @@ export function TransactionTable({
   onRelease,
   onStartProcessing,
   showActions = true,
+  userRole,
 }: Props) {
   const [viewSig, setViewSig] = useState<{
     signature: string;
@@ -218,6 +220,7 @@ export function TransactionTable({
                       )}
 
                     {t.status === 'Processing' &&
+                      userRole === 'admin' &&
                       onSign && (
                         <Button
                           size="sm"

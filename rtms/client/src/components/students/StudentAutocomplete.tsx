@@ -21,9 +21,15 @@ interface Props {
   onSelect: (student: Student) => void;
   onAddNew: () => void;
   onImported?: () => void;
+  resetKey?: number;
 }
 
-export function StudentAutocomplete({ onSelect, onAddNew, onImported }: Props) {
+export function StudentAutocomplete({
+  onSelect,
+  onAddNew,
+  onImported,
+  resetKey,
+}: Props) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -31,6 +37,15 @@ export function StudentAutocomplete({ onSelect, onAddNew, onImported }: Props) {
 
   const { results, isLoading } = useStudentSearch(query);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Clear the search box when the parent form is reset.
+  useEffect(() => {
+    if (resetKey === undefined) return;
+
+    setQuery('');
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  }, [resetKey]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -61,7 +76,9 @@ export function StudentAutocomplete({ onSelect, onAddNew, onImported }: Props) {
     setHighlightedIndex(-1);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (!isOpen || query.length === 0) return;
 
     if (e.key === 'ArrowDown') {
@@ -85,7 +102,10 @@ export function StudentAutocomplete({ onSelect, onAddNew, onImported }: Props) {
     }
 
     if (e.key === 'Enter') {
-      if (highlightedIndex >= 0 && highlightedIndex < results.length) {
+      if (
+        highlightedIndex >= 0 &&
+        highlightedIndex < results.length
+      ) {
         e.preventDefault();
         handleSelect(results[highlightedIndex]);
       }
@@ -108,7 +128,9 @@ export function StudentAutocomplete({ onSelect, onAddNew, onImported }: Props) {
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
-          onFocus={() => query.length > 0 && setIsOpen(true)}
+          onFocus={() =>
+            query.length > 0 && setIsOpen(true)
+          }
           onKeyDown={handleKeyDown}
           placeholder="Search by surname or student number..."
         />
@@ -132,14 +154,18 @@ export function StudentAutocomplete({ onSelect, onAddNew, onImported }: Props) {
                 key={student._id}
                 type="button"
                 className={`w-full text-left px-3 py-2 text-sm transition-colors border-l-4 ${
-                 highlightedIndex === index
-                 ? 'bg-primary/15 border-primary'
-                 : 'border-transparent hover:bg-accent'
-            }`}
-                onMouseEnter={() => setHighlightedIndex(index)}
+                  highlightedIndex === index
+                    ? 'bg-primary/15 border-primary'
+                    : 'border-transparent hover:bg-accent'
+                }`}
+                onMouseEnter={() =>
+                  setHighlightedIndex(index)
+                }
                 onClick={() => handleSelect(student)}
               >
-                <div className="font-medium">{student.name}</div>
+                <div className="font-medium">
+                  {student.name}
+                </div>
 
                 <div className="text-xs text-muted-foreground">
                   {student.studentNumber} · {student.course} - Year{' '}

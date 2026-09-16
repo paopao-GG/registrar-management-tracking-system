@@ -19,19 +19,72 @@ import {
   Loader,
 } from 'lucide-react';
 
+function getPhilippineDate() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+  }).format(new Date());
+}
+
+function getYesterdayPhilippineDate() {
+  const today = getPhilippineDate();
+
+  const date = new Date(`${today}T00:00:00+08:00`);
+  date.setUTCDate(date.getUTCDate() - 1);
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+  }).format(date);
+}
+
+function getDateRange(
+  dateFilter: string,
+  customDate: string
+) {
+  if (dateFilter === 'today') {
+    const today = getPhilippineDate();
+
+    return {
+      startDate: today,
+      endDate: today,
+    };
+  }
+
+  if (dateFilter === 'yesterday') {
+    const yesterday = getYesterdayPhilippineDate();
+
+    return {
+      startDate: yesterday,
+      endDate: yesterday,
+    };
+  }
+
+  if (dateFilter === 'custom' && customDate) {
+    return {
+      startDate: customDate,
+      endDate: customDate,
+    };
+  }
+
+  return {};
+}
+
 export function StaffDashboard() {
   const { user } = useAuth();
 
   const [transactions, setTransactions] =
     useState<any[]>([]);
 
-  const [todayCompleted, setTodayCompleted] = useState(0);
+  const [newRequestsCount, setNewRequestsCount] =
+    useState(0);
 
-  const [incompleteCount, setIncompleteCount] = useState(0);
+  const [processingCount, setProcessingCount] =
+    useState(0);
 
-  const [processingCount, setProcessingCount] = useState(0);
+  const [readyForReleaseCount, setReadyForReleaseCount] =
+    useState(0);
 
-  const [unclaimedCount, setUnclaimedCount] = useState(0);
+  const [todayCompleted, setTodayCompleted] =
+    useState(0);
 
   const [releaseTransaction, setReleaseTransaction] =
     useState<{
@@ -50,182 +103,141 @@ export function StaffDashboard() {
   const [customDate, setCustomDate] =
     useState('');
 
-  const [searchName, setSearchName] = useState('');
+  const [searchName, setSearchName] =
+    useState('');
 
   const [debouncedSearch, setDebouncedSearch] =
     useState('');
 
-  // Delay search slightly while typing.
   useEffect(() => {
-    const timer = setTimeout(
-      () => setDebouncedSearch(searchName),
-      300
-    );
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchName);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [searchName]);
 
-  const getPhilippineDate = () => {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Manila',
-    }).format(new Date());
-  };
-
-  const getDateRange = () => {
-    const today = getPhilippineDate();
-
-    if (dateFilter === 'today') {
-      return {
-        startDate: today,
-        endDate: today,
-      };
-    }
-
-    if (dateFilter === 'yesterday') {
-      const date = new Date(
-        `${today}T00:00:00+08:00`
-      );
-
-      date.setUTCDate(date.getUTCDate() - 1);
-
-      const yesterday = new Intl.DateTimeFormat(
-        'en-CA',
-        {
-          timeZone: 'Asia/Manila',
-        }
-      ).format(date);
-
-      return {
-        startDate: yesterday,
-        endDate: yesterday,
-      };
-    }
-
-    if (dateFilter === 'custom' && customDate) {
-      return {
-        startDate: customDate,
-        endDate: customDate,
-      };
-    }
-
-    return {};
-  };
-
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const dateRange = getDateRange();
+    const dateRange = getDateRange(
+      dateFilter,
+      customDate
+    );
 
-    const searchParams: any = {};
+    const searchParams: Record<
+      string,
+      string | number
+    > = {
+      _t: Date.now(),
+    };
 
     if (debouncedSearch) {
       searchParams.search = debouncedSearch;
     }
 
     if (dateRange.startDate) {
-      searchParams.startDate = dateRange.startDate;
+      searchParams.startDate =
+        dateRange.startDate;
     }
 
     if (dateRange.endDate) {
-      searchParams.endDate = dateRange.endDate;
+      searchParams.endDate =
+        dateRange.endDate;
     }
 
     if (statusFilter) {
       searchParams.status = statusFilter;
     }
 
-    const [
-      transactionsRes,
-      pendingRes,
-      processingRes,
-      readyRes,
-      releasedTodayRes,
-    ] = await Promise.all([
-      // Main transaction table
-      api.get('/transactions', {
-        params: searchParams,
-      }),
-
-      // Pending count
-      api.get('/transactions', {
-        params: {
-          status: 'Pending',
-        },
-      }),
-
-      // Processing count
-      api.get('/transactions', {
-        params: {
-          status: 'Processing',
-        },
-      }),
-
-      // Ready for Release count
-      api.get('/transactions', {
-        params: {
-          status: 'Ready for Release',
-        },
-      }),
-
-      // Completed today
-      api.get('/transactions', {
-        params: {
-          status: 'Released',
-          ...getDateRangeForToday(),
-        },
-      }),
-    ]);
-
-    setTransactions(
-      transactionsRes.data.transactions
-    );
-
-    setProcessingCount(
-      processingRes.data.total
-    );
-
-    setUnclaimedCount(
-      readyRes.data.total
-    );
-
-    setIncompleteCount(
-      pendingRes.data.total +
-        processingRes.data.total +
-        readyRes.data.total
-    );
-
-    setTodayCompleted(
-      releasedTodayRes.data.total
-    );
-  }, [
-    user,
-    debouncedSearch,
-    statusFilter,
-    dateFilter,
-    customDate,
-  ]);
-
-  const getDateRangeForToday = () => {
     const today = getPhilippineDate();
 
-    return {
-      startDate: today,
-      endDate: today,
-    };
-  };
+    try {
+      const [
+        transactionsRes,
+        pendingRes,
+        processingRes,
+        readyRes,
+        releasedTodayRes,
+      ] = await Promise.all([
+        api.get('/transactions', {
+          params: searchParams,
+        }),
 
-  // Initial load and refresh when filters/search change.
+        api.get('/transactions', {
+          params: {
+            status: 'Pending',
+            _t: Date.now(),
+          },
+        }),
+
+        api.get('/transactions', {
+          params: {
+            status: 'Processing',
+            _t: Date.now(),
+          },
+        }),
+
+        api.get('/transactions', {
+          params: {
+            status: 'Ready for Release',
+            _t: Date.now(),
+          },
+        }),
+
+        api.get('/transactions', {
+          params: {
+            status: 'Released',
+            startDate: today,
+            endDate: today,
+            _t: Date.now(),
+          },
+        }),
+      ]);
+
+      setTransactions(
+        transactionsRes.data.transactions
+      );
+
+      setNewRequestsCount(
+        pendingRes.data.total
+      );
+
+      setProcessingCount(
+        processingRes.data.total
+      );
+
+      setReadyForReleaseCount(
+        readyRes.data.total
+      );
+
+      setTodayCompleted(
+        releasedTodayRes.data.total
+      );
+    } catch (error) {
+      console.error(
+        'Failed to refresh staff dashboard:',
+        error
+      );
+    }
+  }, [
+    user,
+    dateFilter,
+    customDate,
+    statusFilter,
+    debouncedSearch,
+  ]);
+
+  // Initial load and refresh whenever filters change.
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Automatically refresh every 10 seconds.
+  // Automatically refresh from the server every 5 seconds.
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchData().catch(() => {
-        /* silent */
-      });
-    }, 10_000);
+      fetchData();
+    }, 5_000);
 
     return () => clearInterval(interval);
   }, [fetchData]);
@@ -236,7 +248,29 @@ export function StaffDashboard() {
         Staff Dashboard
       </h2>
 
+      {/* Dashboard Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        {/* New Requests */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <FileText className="h-8 w-8 text-blue-500" />
+
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  New Requests
+                </p>
+
+                <p className="text-2xl font-bold">
+                  {newRequestsCount}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Processing */}
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -255,24 +289,26 @@ export function StaffDashboard() {
           </CardContent>
         </Card>
 
+        {/* Ready for Release */}
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <FileText className="h-8 w-8 text-orange-500" />
+              <Clock className="h-8 w-8 text-blue-500" />
 
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Total Incomplete
+                  Ready for Release
                 </p>
 
                 <p className="text-2xl font-bold">
-                  {incompleteCount}
+                  {readyForReleaseCount}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Today's Completed */}
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -290,28 +326,12 @@ export function StaffDashboard() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Clock className="h-8 w-8 text-blue-500" />
-
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Unclaimed (Ready for Release)
-                </p>
-
-                <p className="text-2xl font-bold">
-                  {unclaimedCount}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
+      {/* New Request */}
       <NewRequestForm onCreated={fetchData} />
 
+      {/* Transactions */}
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3">
@@ -320,7 +340,8 @@ export function StaffDashboard() {
             </CardTitle>
 
             <div className="flex flex-col md:flex-row gap-3">
-              {/* Status */}
+
+              {/* Status Filter */}
               <select
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full md:w-auto"
                 value={statusFilter}
@@ -349,7 +370,7 @@ export function StaffDashboard() {
                 </option>
               </select>
 
-              {/* Date */}
+              {/* Date Filter */}
               <select
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full md:w-auto"
                 value={dateFilter}
@@ -378,7 +399,7 @@ export function StaffDashboard() {
                 </option>
               </select>
 
-              {/* Custom date */}
+              {/* Custom Date */}
               {dateFilter === 'custom' && (
                 <Input
                   type="date"
@@ -390,7 +411,7 @@ export function StaffDashboard() {
                 />
               )}
 
-              {/* Student search */}
+              {/* Search */}
               <Input
                 className="w-full md:max-w-xs"
                 placeholder="Search by student name..."
@@ -420,6 +441,7 @@ export function StaffDashboard() {
         </CardContent>
       </Card>
 
+      {/* Release */}
       <ReleaseDialog
         open={!!releaseTransaction}
         transactionId={
@@ -434,6 +456,7 @@ export function StaffDashboard() {
         onReleased={fetchData}
       />
 
+      {/* Start Processing */}
       <StartProcessingDialog
         open={!!startProcessingId}
         transactionId={startProcessingId}
