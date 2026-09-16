@@ -169,6 +169,59 @@ export function StaffDashboard() {
     fetchData();
   }, [fetchData]);
 
+  // Automatically refresh dashboard data every 10 seconds
+useEffect(() => {
+  const interval = setInterval(async () => {
+    try {
+      await fetchData();
+
+      // Re-apply the current search filter after refreshing
+      const params: any = {};
+
+      if (debouncedSearch) {
+        params.search = debouncedSearch;
+      }
+
+      const [
+        pendingRes,
+        processingRes,
+        readyRes,
+      ] = await Promise.all([
+        api.get('/transactions', {
+          params: {
+            ...params,
+            status: 'Pending',
+          },
+        }),
+
+        api.get('/transactions', {
+          params: {
+            ...params,
+            status: 'Processing',
+          },
+        }),
+
+        api.get('/transactions', {
+          params: {
+            ...params,
+            status: 'Ready for Release',
+          },
+        }),
+      ]);
+
+      setIncompleteTransactions([
+        ...pendingRes.data.transactions,
+        ...processingRes.data.transactions,
+        ...readyRes.data.transactions,
+      ]);
+    } catch {
+      /* silent */
+    }
+  }, 10_000);
+
+  return () => clearInterval(interval);
+}, [fetchData, debouncedSearch]);
+
   const incompleteCount =
     incompleteTransactions.length;
 

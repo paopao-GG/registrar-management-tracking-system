@@ -33,6 +33,7 @@ model Student {
   email         String?
   course        String
   yearLevel     Int
+  active Boolean @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

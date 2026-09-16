@@ -43,6 +43,9 @@ export interface BulkImportFailed {
 
 export interface BulkImportResult {
   created: number;
+  updated: number;
+  reactivated: number;
+  deactivated: number;
   skipped: BulkImportSkipped[];
   failed: BulkImportFailed[];
 }
