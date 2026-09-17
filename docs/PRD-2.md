@@ -6,8 +6,11 @@
 |---|---|
 | **Version** | 1.0 |
 | **Date** | March 10, 2026 |
-| **Status** | Draft |
+| **Status** | Draft (updated for v2) |
+| **Last Updated** | September 17, 2026 |
 | **Author** | — |
+
+> **Revision — v2 (September 17, 2026).** This PRD was updated to match the implemented system after the v2 feedback round ([v2.md](v2.md)): the four-step status flow, bulk actions, per-day dashboards, alumni requests, the ARTA and BUP Excel logbooks, the single-device signing tablet with Data Privacy consent, and the PostgreSQL/Vercel stack. The design is described in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
 
 ---
 
@@ -137,15 +140,15 @@ Reports generated on demand
 | ID | Feature | Priority | Description |
 |---|---|---|---|
 | F-01 | Login / Authentication | Must | Username/password login, role-based redirect |
-| F-02 | Staff Dashboard | Must | Today's requests table + incomplete items list |
+| F-02 | Staff Dashboard | Must | Summary cards, new request form and the day's transactions (one day at a time, default today) with bulk Start Processing and Release |
 | F-03 | Transaction Encoding | Must | New request form with student autocomplete, document type counters, auto-timestamps |
-| F-04 | Student Database | Must | Manual student entry (name, course, year level), autocomplete search, inline add |
-| F-05 | Status Tracking | Must | Auto-status: Processing → Signed → Released |
+| F-04 | Student Database | Must | Roster import (CSV/XLSX) as the source of enrolled students; manual add; autocomplete search; alumni requesters added from the request form |
+| F-05 | Status Tracking | Must | Pending → Processing → Ready for Release → Released |
 | F-06 | Document Review/Signing | Must | Registrar marks documents as reviewed/signed |
-| F-07 | Document Release | Must | Record claimer name + signature, auto-timestamp |
+| F-07 | Document Release | Must | Staff records the claimant name; the claimant signs on the signing tablet after giving Data Privacy consent; auto-timestamp. One signature can release several requests. |
 | F-08 | Duration Calculation | Must | Auto-calculate: Prepared → Signed timestamp (calendar time) |
-| F-09 | Admin Dashboard | Must | All incomplete requests, filters, quick statistics |
-| F-10 | Summary Reports | Must | By date range, service type, staff; export to CSV |
+| F-09 | Admin Dashboard | Must | Summary cards and all staff's requests for a selected day, status filter, bulk Sign |
+| F-10 | Summary Reports | Must | By date range; export the ARTA-Logbook and BUP-Logbook as Excel (.xlsx) |
 | F-11 | Staff Management | Must | Add, edit, deactivate, reset password |
 | F-12 | Audit Log | Must | Log all status changes with user, timestamp, old/new status |
 | F-13 | Logout + Session Timeout | Must | Logout button on all pages; 30-min inactivity timeout |
@@ -154,10 +157,25 @@ Reports generated on demand
 
 | ID | Feature | Description |
 |---|---|---|
-| F-14 | Student bulk import | Import student list from CSV/Excel |
+| F-14 | Student bulk import | Import student list from CSV/Excel (implemented) |
 | F-15 | Print transaction receipt | Generate printable receipt for student |
 | F-16 | Email notifications | Notify staff when documents are ready for release |
 | F-17 | Mobile-responsive layout | Optimized for tablet use at service counter |
+
+### V2 Features (implemented September 2026)
+
+| ID | Feature | Description |
+|---|---|---|
+| V2-01 | Bulk actions | Select rows to Start Processing, Sign (admin) or Release several requests at once |
+| V2-02 | One-claimant release | One representative signs once for many requests (e.g. a whole block) |
+| V2-03 | Per-day dashboards | Dashboards show one day at a time, defaulting to today; date filter comes before status |
+| V2-04 | Compact tables | Abbreviated programs, Actions beside Status, smaller dates, scrollbar above the table, pages in a menu |
+| V2-05 | Enrolled Students directory | Total count, program filter, BU Email and Contact Number columns, pagination |
+| V2-06 | Alumni requests | Alumni button on the request form; alumni kept out of roster deactivation |
+| V2-07 | ARTA and BUP logbooks | Excel exports with the campus header, document sub-columns, captured signatures and totals |
+| V2-08 | Audit log totals | Total count, Today view, Transaction ID column removed |
+| V2-09 | Data Privacy consent | Claimant must tick a consent box before the signature is accepted |
+| V2-10 | Tablet security | Sign page usable on one device only and only while staff are active |
 
 ### Out of Scope
 - Student-facing portal or self-service
@@ -174,37 +192,47 @@ Reports generated on demand
 
 **Flow 1: Encode New Request (Staff)**
 ```
-Login → Staff Dashboard → Click "New Request" →
-Select/Add Student (autocomplete) → Course & Year (autocomplete) →
-Select document types (counter buttons) →
-Status = Processing, timestamps auto-recorded
+Login → Staff Dashboard → New Request form →
+Search student (or click "Alumni" to add an alumni requester) → Program & Year auto-fill →
+Select document types (counter buttons: COR, COG, GMC, AUTH, OTR, Others) → Save →
+Status = Pending, timestamps auto-recorded
 ```
 
-**Flow 2: Review & Sign (Admin)**
+**Flow 2: Start Processing (Staff)**
 ```
-Login → Admin Dashboard → View Processing requests →
-Select request → Review → Mark as Signed →
-Timestamp auto-recorded
+Staff Dashboard → select one or more Pending requests →
+Start Processing → Status = Processing
 ```
 
-**Flow 3: Release Document (Staff)**
+**Flow 3: Review & Sign (Admin)**
 ```
-Staff Dashboard → Incomplete Documents tab →
-Select signed request → Enter claimer name → Capture signature →
-Save → Status = Released, timestamp auto-recorded
+Login → Admin Dashboard → select one or more Processing requests →
+Sign → Status = Ready for Release, reviewer + timestamp recorded, duration calculated
+```
+
+**Flow 4: Release Document (Staff)**
+```
+Staff Dashboard → select one or more Ready for Release requests →
+Enter claimant name → Sign on Tablet →
+Claimant ticks Data Privacy consent and signs on the tablet →
+Staff confirms → Status = Released (one signature for all selected requests)
 ```
 
 ### Information Architecture
 
 ```
 ├── Login Page
+├── Signing Tablet (/sign — no login; one device only, active only while staff are active)
+├── Menu (top-left) → pages below
 ├── Staff Dashboard
-│   ├── Today's Requests (table + new request form)
-│   └── Incomplete/Unclaimed Documents
+│   ├── Summary cards (selected day)
+│   ├── New Request form (students + Alumni button)
+│   └── Transactions (one day at a time; bulk Start Processing / Release)
 ├── Admin Dashboard
-│   ├── All Incomplete/Unreleased Requests (filterable)
-│   ├── Quick Statistics
-│   └── Summary Reports (with date range + export)
+│   ├── Summary cards (selected day)
+│   └── Requests (one day at a time; bulk Sign)
+├── Students (Admin) — Enrolled Students directory, import
+├── Reports (Admin) — ARTA-Logbook and BUP-Logbook Excel exports
 ├── Staff Management (Admin only)
 ├── Audit Log (Admin only)
 └── Logout
@@ -230,21 +258,24 @@ Save → Status = Released, timestamp auto-recorded
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React + TypeScript + Vite |
-| **Backend** | Node.js + TypeScript + Fastify |
-| **Database** | MongoDB |
-| **Authentication** | JWT-based session tokens |
-| **Styling** | TBD (Tailwind CSS, shadcn/ui, or similar) |
-| **Deployment** | TBD |
+| **Frontend** | React 19 + TypeScript + Vite |
+| **Backend** | Node.js + TypeScript + Fastify, Prisma ORM, Zod validation |
+| **Database** | PostgreSQL (Supabase) |
+| **Authentication** | JWT-based session tokens, bcrypt password hashing |
+| **Styling** | Tailwind CSS, Radix UI |
+| **Reports** | ExcelJS (xlsx generation) |
+| **Deployment** | Vercel (static client + serverless API) |
 
-### Data Model (Key Collections)
+### Data Model (Key Tables)
 
-| Collection | Key Fields |
+| Table | Key Fields |
 |---|---|
-| `users` | name, username, passwordHash, role (admin/staff), status (active/inactive) |
-| `students` | name, course, yearLevel, createdAt |
-| `transactions` | studentId, requestedDocuments, status, preparedBy, preparedAt, reviewedBy, reviewedAt, releasedTo, releasedAt, signature, duration |
-| `auditLogs` | transactionId, action, previousStatus, newStatus, performedBy, timestamp |
+| `User` | name, username, passwordHash, role (admin/staff), status (active/inactive), lastActiveAt |
+| `Student` | studentNumber, lastName, firstName, middleName, email, sex, contactNumber, course, yearLevel, active, isAlumni |
+| `Transaction` | studentId, student snapshot (name, course, year), docCOR, docCOG, docGMC, docAUTH, docOTR, others, othersCount, status, preparedBy/At, reviewedBy/At, duration, releasedTo, releasedAt, signature |
+| `AuditLog` | transactionId, action, previousStatus, newStatus, performedBy, timestamp |
+| `SigningSession` | transactionIds, token, releasedTo, liveSignature, status, consentAt |
+| `TabletLock` | deviceId, lastSeenAt (single row: the registered signing tablet) |
 
 ### Security
 - Passwords hashed with bcrypt (min 10 salt rounds)
@@ -259,18 +290,27 @@ Save → Status = Released, timestamp auto-recorded
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/auth/login` | Authenticate user |
-| POST | `/api/auth/logout` | Invalidate session |
-| GET | `/api/transactions` | List transactions (with filters) |
+| POST | `/api/auth/logout` | End session, clear staff activity |
+| POST | `/api/auth/heartbeat` | Mark the user as active |
+| GET | `/api/transactions` | List transactions (status, day, search filters) |
 | POST | `/api/transactions` | Create new transaction |
-| PATCH | `/api/transactions/:id/sign` | Mark as signed |
-| PATCH | `/api/transactions/:id/release` | Mark as released |
+| POST | `/api/transactions/bulk/start` | Start processing one or more requests (staff) |
+| POST | `/api/transactions/bulk/sign` | Sign one or more requests (admin) |
+| POST | `/api/transactions/bulk/release` | Release one or more requests with one signature (staff) |
 | GET | `/api/students` | Search students (autocomplete) |
-| POST | `/api/students` | Add new student |
-| GET | `/api/reports` | Generate summary report |
+| GET | `/api/students/directory` | Enrolled student directory with total and program filter (admin) |
+| POST | `/api/students` | Add a student or alumni requester |
+| POST | `/api/students/bulk` | Import the student roster |
+| GET | `/api/reports` | Report preview, or ARTA/BUP xlsx with `format=arta` / `format=bup` |
 | GET | `/api/users` | List staff (admin) |
 | POST | `/api/users` | Create staff account |
 | PATCH | `/api/users/:id` | Update staff |
-| GET | `/api/audit-logs` | View audit logs (admin) |
+| GET | `/api/audit-logs` | View audit logs with total (admin) |
+| POST | `/api/signing/sessions` | Send a release to the signing tablet (staff) |
+| POST | `/api/signing/tablet/claim` | Register this device as the signing tablet |
+| DELETE | `/api/signing/tablet/lock` | Reset the signing tablet |
+
+The full list, including the tablet polling endpoints, is in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md#9-api-reference).
 
 ---
 
@@ -284,7 +324,7 @@ Save → Status = Released, timestamp auto-recorded
 
 ### Phase 2: Admin Features
 - Admin Dashboard (all requests, filters, statistics)
-- Summary Reports with CSV export
+- Summary Reports with ARTA/BUP Excel logbook export
 - Staff Management (add, edit, deactivate, reset password)
 - Audit Log
 
@@ -309,7 +349,7 @@ Save → Status = Released, timestamp auto-recorded
 | Staff resist adopting digital system | Medium | High | Involve staff in testing; make UI simpler than manual process |
 | Internet/network outage at campus | Medium | High | Consider local deployment or offline-capable fallback |
 | Data loss (no backups) | Low | Critical | Automated daily database backups |
-| Slow performance with growing data | Low | Medium | Index MongoDB queries; pagination on all list views |
+| Slow performance with growing data | Low | Medium | Index PostgreSQL queries; pagination on list views |
 | Security breach (unauthorized access) | Low | High | RBAC, JWT expiration, bcrypt hashing, input validation |
 | Scope creep during development | Medium | Medium | Strict adherence to MVP features; out-of-scope list enforced |
 
@@ -322,7 +362,7 @@ Save → Status = Released, timestamp auto-recorded
 - [x] **What** does success look like? → 100% transaction digitization, auto-timestamps, on-demand reports
 - [x] **What** features are included? → See Feature Requirements (F-01 through F-13)
 - [x] **What** is out of scope? → Student portal, payments, SIS integration, SMS, multi-campus
-- [x] **What** resources are needed? → Development team, MongoDB instance, web server
+- [x] **What** resources are needed? → Development team, PostgreSQL database (Supabase), Vercel hosting
 - [x] **What** are the risks? → Adoption resistance, network outage, data loss — all mitigated
 
 ---

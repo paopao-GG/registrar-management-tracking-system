@@ -4,7 +4,11 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 if (!process.env.VERCEL) {
-  dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+  // Checked in order: server/.env, rtms/.env, then the repository root.
+  // dotenv never overrides a value that is already set.
+  for (const dir of ['../..', '../../..', '../../../..']) {
+    dotenv.config({ path: path.resolve(__dirname, dir, '.env') });
+  }
 }
 
 export const env = {

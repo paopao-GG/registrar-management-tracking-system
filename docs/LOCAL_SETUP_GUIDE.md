@@ -231,7 +231,7 @@ cd ..
 
 ### What this does:
 - **`prisma generate`** — Creates the TypeScript client library from the Prisma schema so the server code can interact with the database
-- **`prisma migrate deploy`** — Applies all migration files to your PostgreSQL database, creating the `User`, `Student`, `Transaction`, and `AuditLog` tables along with their indexes and relationships
+- **`prisma migrate deploy`** — Applies all migration files to your PostgreSQL database, creating the `User`, `Student`, `Transaction`, `AuditLog`, `SigningSession`, and `TabletLock` tables along with their indexes and relationships. Run it again whenever you pull changes that add a migration (for example the v2 migration `20260917000000_v2_updates`)
 
 ### Verify tables were created
 
@@ -328,9 +328,13 @@ You should see the RTAMS login page.
 
 1. **Login as Admin**: Use `admin` / `admin123`
 2. **Check the Dashboard**: You should see the admin dashboard with navigation options
-3. **View Students**: Navigate to the students section — you should see the 8 seeded students
-4. **Create a Transaction**: Try creating a new document request to verify the full stack works
-5. **Login as Staff**: Log out and try `staff1` / `staff123` to verify staff access
+3. **View Students**: Open the menu (top left) → Students — you should see the seeded students and the total count
+4. **Login as Staff**: Log out and try `staff1` / `staff123`, create a request, then start processing it
+5. **Sign as Admin**: Log back in as admin and sign the request
+6. **Try the signing tablet**: Open `http://localhost:5173/sign` in another browser window (a staff account must be logged in and active), then release the request as staff
+7. **Export a logbook**: As admin, open Reports, pick today's date and download the ARTA and BUP logbooks
+
+For how these pieces work, see [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
 
 ---
 
@@ -365,7 +369,7 @@ rtams/
 │       ├── middleware/      # Auth & role-based access middleware
 │       ├── routes/         # API route handlers
 │       ├── services/       # Business logic layer
-│       └── utils/          # Helpers (JWT, passwords, CSV, etc.)
+│       └── utils/          # Helpers (JWT, passwords, Excel logbooks, etc.)
 │
 └── client/                 # @rtams/client — React frontend
     ├── package.json
@@ -388,7 +392,7 @@ rtams/
 | Layer      | Technology                                      |
 | ---------- | ----------------------------------------------- |
 | Frontend   | React 19, Vite, Tailwind CSS, Radix UI, TanStack Query |
-| Backend    | Fastify 4, Prisma ORM, Zod validation           |
+| Backend    | Fastify 4, Prisma ORM, Zod validation, ExcelJS  |
 | Database   | PostgreSQL                                       |
 | Auth       | JWT (JSON Web Tokens) + bcrypt password hashing  |
 | Language   | TypeScript (across all packages)                 |

@@ -1,53 +1,111 @@
 import { prisma } from '../config/db.js';
-import { DOCUMENT_TYPES } from '@rtams/shared';
+import {
+  DOCUMENT_TYPES,
+  formatCourseYear,
+  formatDuration,
+  phDayRange,
+  type ArtaReportRow,
+  type BupReportRow,
+  type NameDateTime,
+} from '@rtams/shared';
+import { toDocumentsObject } from '../utils/doc-mapper.js';
 
-export async function generateReport(startDate: string, endDate: string) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+const dateFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  month: '2-digit',
+  day: '2-digit',
+  year: 'numeric',
+});
 
-  const transactions = await prisma.transaction.findMany({
+const timeFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true,
+});
+
+function formatDate(date: Date | null) {
+  return date ? dateFormat.format(date) : '';
+}
+
+function formatDateTime(date: Date | null) {
+  return date ? `${dateFormat.format(date)} ${timeFormat.format(date)}` : '';
+}
+
+function nameDateTime(name: string | null, date: Date | null): NameDateTime {
+  return { name: name ?? '', dateTime: formatDateTime(date) };
+}
+
+async function findReleased(startDate: string, endDate: string) {
+  return prisma.transaction.findMany({
     where: {
       status: 'Released',
-      releasedAt: { gte: start, lte: end },
+      releasedAt: phDayRange(startDate, endDate),
     },
-    orderBy: { releasedAt: 'desc' },
+    include: {
+      student: {
+        select: { email: true, contactNumber: true, sex: true },
+      },
+    },
+    orderBy: { releasedAt: 'asc' },
   });
+}
 
-  const docKeyMap: Record<string, string> = {
-    COR: 'docCOR',
-    COG: 'docCOG',
-    CMC: 'docCMC',
-    AUTH: 'docAUTH',
-    OTR: 'docOTR',
+type ReleasedTransaction = Awaited<ReturnType<typeof findReleased>>[number];
+
+function servicesSummary(t: ReleasedTransaction) {
+  const docs = toDocumentsObject(t);
+  const services: string[] = DOCUMENT_TYPES.filter((d) => docs[d] > 0).map(
+    (d) => (docs[d] > 1 ? `${d} (${docs[d]})` : d)
+  );
+
+  if (t.othersCount > 0 && t.others) {
+    services.push(t.othersCount > 1 ? `${t.others} (${t.othersCount})` : t.others);
+  }
+
+  return services.join(', ');
+}
+
+function toArtaRow(t: ReleasedTransaction): ArtaReportRow {
+  return {
+    clientName: t.studentName,
+    requestedDocuments: servicesSummary(t),
+    contactNumber: t.student.contactNumber ?? '',
+    email: t.student.email ?? '',
+    transactionDate: formatDate(t.releasedAt),
   };
+}
 
-  const rows = transactions.map((t: any) => {
-    const services: string[] = [];
-    for (const docType of DOCUMENT_TYPES) {
-      const key = docKeyMap[docType] as keyof typeof t;
-      if ((t[key] as number) > 0) {
-        services.push(docType);
-      }
-    }
-    if (t.othersCount > 0 && t.others) {
-      services.push(t.others);
-    }
-
-    const completionDate = t.releasedAt
-      ? t.releasedAt.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-      : '';
-
-    return {
-      clientName: t.studentName,
-      serviceAvailed: services.join(', '),
-      completionDate,
-    };
-  });
+function toBupRow(t: ReleasedTransaction): BupReportRow {
+  const docs = toDocumentsObject(t);
 
   return {
-    rows,
+    date: formatDate(t.preparedAt),
+    name: t.studentName,
+    sex: t.student.sex ?? '',
+    courseYear: formatCourseYear(t.studentCourse, t.studentYearLevel),
+    ...docs,
+    OTHERS: t.othersCount,
+    othersLabel: t.othersCount > 0 ? t.others : '',
+    preparedBy: nameDateTime(t.preparedByName, t.preparedAt),
+    reviewedBy: nameDateTime(t.reviewedByName, t.reviewedAt),
+    duration: t.duration ? formatDuration(t.duration) : '',
+    releasedTo: nameDateTime(t.releasedTo, t.releasedAt),
+    signature: t.signature,
+  };
+}
+
+export async function generateReport(startDate: string, endDate: string) {
+  const transactions = await findReleased(startDate, endDate);
+
+  return {
+    rows: transactions.map(toArtaRow),
     period: { startDate, endDate },
     totalTransactions: transactions.length,
   };
+}
+
+export async function generateBupRows(startDate: string, endDate: string) {
+  const transactions = await findReleased(startDate, endDate);
+  return transactions.map(toBupRow);
 }

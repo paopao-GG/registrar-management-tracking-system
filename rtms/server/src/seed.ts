@@ -1,13 +1,7 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+export {};
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config({
-  path: path.resolve(__dirname, '../../../.env'),
-});
+// Loads .env the same way the server does (see config/env.ts).
+await import('./config/env.js');
 
 const { PrismaClient } = await import('@prisma/client');
 const { hashPassword } = await import('./utils/password.js');

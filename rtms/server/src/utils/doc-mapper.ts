@@ -1,9 +1,9 @@
-export function toDocumentsObject(t: { docCOR: number; docCOG: number; docCMC: number; docAUTH: number; docOTR: number }) {
-  return { COR: t.docCOR, COG: t.docCOG, CMC: t.docCMC, AUTH: t.docAUTH, OTR: t.docOTR };
+export function toDocumentsObject(t: { docCOR: number; docCOG: number; docGMC: number; docAUTH: number; docOTR: number }) {
+  return { COR: t.docCOR, COG: t.docCOG, GMC: t.docGMC, AUTH: t.docAUTH, OTR: t.docOTR };
 }
 
-export function toDocColumns(docs: { COR: number; COG: number; CMC: number; AUTH: number; OTR: number }) {
-  return { docCOR: docs.COR, docCOG: docs.COG, docCMC: docs.CMC, docAUTH: docs.AUTH, docOTR: docs.OTR };
+export function toDocColumns(docs: { COR: number; COG: number; GMC: number; AUTH: number; OTR: number }) {
+  return { docCOR: docs.COR, docCOG: docs.COG, docGMC: docs.GMC, docAUTH: docs.AUTH, docOTR: docs.OTR };
 }
 
 export function toApiTransaction(t: any) {

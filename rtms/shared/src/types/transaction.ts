@@ -8,7 +8,7 @@ export enum TransactionStatus {
 export interface RequestedDocuments {
   COR: number;
   COG: number;
-  CMC: number;
+  GMC: number;
   AUTH: number;
   OTR: number;
 }

@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin, requireStaff } from '../middleware/roles.js';
 import {
+  bulkIdsSchema,
+  bulkReleaseSchema,
   createTransactionSchema,
   releaseTransactionSchema,
 } from '@rtams/shared';
@@ -13,6 +15,9 @@ import {
   signTransaction,
   releaseTransaction,
   getTransactions,
+  bulkStartProcessing,
+  bulkSign,
+  bulkRelease,
 } from '../services/transaction.service.js';
 
 export async function transactionRoutes(app: FastifyInstance) {
@@ -139,6 +144,71 @@ export async function transactionRoutes(app: FastifyInstance) {
         );
 
         return transaction;
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
+      }
+    }
+  );
+
+  // Bulk Start Processing - Staff
+  app.post(
+    '/api/transactions/bulk/start',
+    { preHandler: requireStaff },
+    async (request, reply) => {
+      const parsed = bulkIdsSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply.status(400).send({ error: parsed.error.issues[0].message });
+      }
+
+      try {
+        const transactions = await bulkStartProcessing(parsed.data.ids, request.user);
+        return { transactions };
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
+      }
+    }
+  );
+
+  // Bulk Sign - Admin only
+  app.post(
+    '/api/transactions/bulk/sign',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = bulkIdsSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply.status(400).send({ error: parsed.error.issues[0].message });
+      }
+
+      try {
+        const transactions = await bulkSign(parsed.data.ids, request.user);
+        return { transactions };
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
+      }
+    }
+  );
+
+  // Bulk Release to one claimant with one signature - Staff
+  app.post(
+    '/api/transactions/bulk/release',
+    { preHandler: requireStaff },
+    async (request, reply) => {
+      const parsed = bulkReleaseSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply.status(400).send({ error: parsed.error.issues[0].message });
+      }
+
+      try {
+        const transactions = await bulkRelease(
+          parsed.data.ids,
+          parsed.data.releasedTo,
+          parsed.data.signature,
+          request.user
+        );
+        return { transactions };
       } catch (error: any) {
         return reply.status(400).send({ error: error.message });
       }

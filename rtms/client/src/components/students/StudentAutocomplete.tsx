@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useStudentSearch } from '@/hooks/useStudentSearch';
-import { Plus, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
+import { formatCourseYear } from '@rtams/shared';
 import { BulkImportDialog } from './BulkImportDialog';
 
 interface Student {
@@ -19,14 +20,12 @@ interface Student {
 
 interface Props {
   onSelect: (student: Student) => void;
-  onAddNew: () => void;
   onImported?: () => void;
   resetKey?: number;
 }
 
 export function StudentAutocomplete({
   onSelect,
-  onAddNew,
   onImported,
   resetKey,
 }: Props) {
@@ -168,28 +167,13 @@ export function StudentAutocomplete({
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  {student.studentNumber} · {student.course} - Year{' '}
-                  {student.yearLevel}
+                  {student.studentNumber} ·{' '}
+                  {formatCourseYear(student.course, student.yearLevel)}
                 </div>
               </button>
             ))}
 
             <div className="flex border-t">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="flex-1 justify-start text-primary"
-                onClick={() => {
-                  setIsOpen(false);
-                  setHighlightedIndex(-1);
-                  onAddNew();
-                }}
-              >
-                <Plus className="h-3 w-3 mr-2" />
-                Add New
-              </Button>
-
               <Button
                 type="button"
                 variant="ghost"

@@ -1,16 +1,47 @@
+export type ReportFormat = 'json' | 'arta' | 'bup';
+
 export interface ReportFilters {
   startDate: string;
   endDate: string;
+  format?: ReportFormat;
 }
 
-export interface ReportRow {
+/** One row of the ARTA logbook. */
+export interface ArtaReportRow {
   clientName: string;
-  serviceAvailed: string;
-  completionDate: string;
+  requestedDocuments: string;
+  contactNumber: string;
+  email: string;
+  transactionDate: string;
+}
+
+export interface NameDateTime {
+  name: string;
+  dateTime: string;
+}
+
+/** One row of the BUP logbook. */
+export interface BupReportRow {
+  date: string;
+  name: string;
+  sex: string;
+  courseYear: string;
+  COR: number;
+  COG: number;
+  GMC: number;
+  AUTH: number;
+  OTR: number;
+  OTHERS: number;
+  othersLabel: string;
+  preparedBy: NameDateTime;
+  reviewedBy: NameDateTime;
+  duration: string;
+  releasedTo: NameDateTime;
+  signature: string | null;
 }
 
 export interface ReportResponse {
-  rows: ReportRow[];
+  rows: ArtaReportRow[];
   period: {
     startDate: string;
     endDate: string;

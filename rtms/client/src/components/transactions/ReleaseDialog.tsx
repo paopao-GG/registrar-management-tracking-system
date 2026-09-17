@@ -8,24 +8,23 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
+import type { ReleaseTarget } from './TransactionTable';
 
 interface Props {
   open: boolean;
-  transactionId: string | null;
-  studentName: string;
+  transactions: ReleaseTarget[];
   onClose: () => void;
   onReleased: () => void;
 }
 
 export function ReleaseDialog({
   open,
-  transactionId,
-  studentName,
+  transactions,
   onClose,
   onReleased,
 }: Props) {
   const [releasedTo, setReleasedTo] = useState('');
-  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const [sendingToTablet, setSendingToTablet] =
     useState(false);
@@ -47,13 +46,20 @@ export function ReleaseDialog({
 
   const [loading, setLoading] = useState(false);
 
+  const transactionIds = transactions.map((t) => t.id);
+  const transactionKey = transactionIds.join(',');
+  const studentNames = Array.from(
+    new Set(transactions.map((t) => t.studentName))
+  );
+  const count = transactions.length;
+
   /*
-   * Reset the dialog whenever it opens for a transaction.
+   * Reset the dialog whenever it opens for new transactions.
    */
   useEffect(() => {
     if (open) {
       setReleasedTo('');
-      setShowSuggestion(false);
+      setSuggestions([]);
       setSendingToTablet(false);
       setSessionId(null);
       setSignatureReceived(false);
@@ -61,7 +67,7 @@ export function ReleaseDialog({
       setLiveSignature(null);
       setLoading(false);
     }
-  }, [open, transactionId]);
+  }, [open, transactionKey]);
 
   /*
    * Poll the signing session.
@@ -151,10 +157,10 @@ export function ReleaseDialog({
   }, [sessionId]);
 
   /*
-   * Send the claimant's name and transaction to the tablet.
+   * Send the claimant's name and transactions to the tablet.
    */
   const handleSendToTablet = async () => {
-    if (!transactionId) return;
+    if (count === 0) return;
 
     if (!releasedTo.trim()) {
       alert('Please enter the claimant name');
@@ -162,12 +168,13 @@ export function ReleaseDialog({
     }
 
     setSendingToTablet(true);
+    setSuggestions([]);
 
     try {
       const response = await api.post(
         '/signing/sessions',
         {
-          transactionId,
+          transactionIds,
           releasedTo: releasedTo.trim(),
         }
       );
@@ -187,12 +194,12 @@ export function ReleaseDialog({
   };
 
   /*
-   * Confirm the signature and release the transaction.
+   * Confirm the signature and release the transactions.
    */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!transactionId) return;
+    if (count === 0) return;
 
     if (!releasedTo.trim()) {
       alert('Please enter the claimant name');
@@ -210,16 +217,14 @@ export function ReleaseDialog({
 
     try {
       /*
-       * First release the transaction using the existing
-       * transaction release workflow.
+       * First release every transaction with the one
+       * claimant signature.
        */
-      await api.patch(
-        `/transactions/${transactionId}/release`,
-        {
-          releasedTo: releasedTo.trim(),
-          signature,
-        }
-      );
+      await api.post('/transactions/bulk/release', {
+        ids: transactionIds,
+        releasedTo: releasedTo.trim(),
+        signature,
+      });
 
       /*
        * Then tell the tablet that staff has confirmed
@@ -232,7 +237,7 @@ export function ReleaseDialog({
       }
 
       setReleasedTo('');
-      setShowSuggestion(false);
+      setSuggestions([]);
       setSessionId(null);
       setSignatureReceived(false);
       setSignature(null);
@@ -275,29 +280,30 @@ export function ReleaseDialog({
   };
 
   /*
-   * Student name suggestion.
+   * Student name suggestions.
    *
-   * It does NOT automatically fill the field.
+   * They do NOT automatically fill the field.
    */
-  const handleSelectSuggestion = () => {
-    setReleasedTo(studentName);
-    setShowSuggestion(false);
+  const matchSuggestions = (value: string) => {
+    const term = value.trim().toLowerCase();
+
+    setSuggestions(
+      term
+        ? studentNames.filter((name) =>
+            name.toLowerCase().includes(term)
+          )
+        : []
+    );
+  };
+
+  const handleSelectSuggestion = (name: string) => {
+    setReleasedTo(name);
+    setSuggestions([]);
   };
 
   const handleChange = (value: string) => {
     setReleasedTo(value);
-
-    if (studentName && value.trim()) {
-      setShowSuggestion(
-        studentName
-          .toLowerCase()
-          .includes(
-            value.trim().toLowerCase()
-          )
-      );
-    } else {
-      setShowSuggestion(false);
-    }
+    matchSuggestions(value);
   };
 
   return (
@@ -310,7 +316,7 @@ export function ReleaseDialog({
           }
 
           setReleasedTo('');
-          setShowSuggestion(false);
+          setSuggestions([]);
 
           onClose();
         }
@@ -319,9 +325,25 @@ export function ReleaseDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Release Document
+            {count > 1
+              ? `Release ${count} Documents`
+              : 'Release Document'}
           </DialogTitle>
         </DialogHeader>
+
+        {count > 1 && (
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">
+              One claimant will sign for:
+            </p>
+
+            <ul className="mt-1 max-h-32 list-disc overflow-y-auto pl-5 text-muted-foreground">
+              {studentNames.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <form
           onSubmit={handleSubmit}
@@ -339,34 +361,22 @@ export function ReleaseDialog({
                 onChange={(e) =>
                   handleChange(e.target.value)
                 }
-                onFocus={() => {
-                  if (
-                    releasedTo.trim() &&
-                    studentName
-                  ) {
-                    setShowSuggestion(
-                      studentName
-                        .toLowerCase()
-                        .includes(
-                          releasedTo
-                            .trim()
-                            .toLowerCase()
-                        )
-                    );
-                  }
-                }}
+                onFocus={() =>
+                  matchSuggestions(releasedTo)
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
-                    setShowSuggestion(false);
+                    setSuggestions([]);
                   }
 
                   if (
                     e.key === 'Enter' &&
-                    showSuggestion &&
-                    studentName
+                    suggestions.length > 0
                   ) {
                     e.preventDefault();
-                    handleSelectSuggestion();
+                    handleSelectSuggestion(
+                      suggestions[0]
+                    );
                   }
                 }}
                 placeholder="Enter claimer name"
@@ -377,22 +387,24 @@ export function ReleaseDialog({
                 required
               />
 
-              {showSuggestion &&
-                studentName && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-background shadow-lg">
+              {suggestions.length > 0 && (
+                <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+                  {suggestions.map((name) => (
                     <button
+                      key={name}
                       type="button"
                       className="w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
-                      onClick={
-                        handleSelectSuggestion
+                      onClick={() =>
+                        handleSelectSuggestion(name)
                       }
                     >
                       <div className="font-medium">
-                        {studentName}
+                        {name}
                       </div>
                     </button>
-                  </div>
-                )}
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -506,7 +518,9 @@ export function ReleaseDialog({
           >
             {loading
               ? 'Releasing...'
-              : 'Confirm Release'}
+              : count > 1
+                ? `Confirm Release (${count})`
+                : 'Confirm Release'}
           </Button>
         </form>
       </DialogContent>

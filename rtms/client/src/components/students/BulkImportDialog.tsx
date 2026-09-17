@@ -26,6 +26,13 @@ const HEADER_MAP: Record<string, keyof BulkImportRow> = {
   yearlevel: 'yearLevel',
   email: 'email',
   emailaddress: 'email',
+  buemail: 'email',
+  sex: 'sex',
+  gender: 'sex',
+  contactnumber: 'contactNumber',
+  contactno: 'contactNumber',
+  mobilenumber: 'contactNumber',
+  mobileno: 'contactNumber',
 };
 
 const REQUIRED_KEYS: Array<keyof BulkImportRow> = [
@@ -44,6 +51,8 @@ const TEMPLATE_HEADERS = [
   'Program',
   'Year Level',
   'Email Address',
+  'Sex',
+  'Contact Number',
 ];
 
 function normalizeHeader(h: string): string {

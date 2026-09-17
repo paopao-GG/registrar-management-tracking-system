@@ -5,8 +5,11 @@ export interface IStudent {
   firstName: string;
   middleName: string | null;
   email: string | null;
+  sex: string | null;
+  contactNumber: string | null;
   course: string;
   yearLevel: number;
+  isAlumni: boolean;
   createdAt: Date;
 }
 
@@ -16,8 +19,11 @@ export interface CreateStudentDTO {
   middleName?: string;
   studentNumber?: string;
   email?: string;
+  sex?: 'M' | 'F';
+  contactNumber?: string;
   course: string;
-  yearLevel: number;
+  yearLevel?: number;
+  isAlumni?: boolean;
 }
 
 export interface BulkImportRow {
@@ -26,6 +32,8 @@ export interface BulkImportRow {
   firstName: string;
   middleName?: string;
   email?: string;
+  sex?: string;
+  contactNumber?: string;
   course: string;
   yearLevel: number;
 }

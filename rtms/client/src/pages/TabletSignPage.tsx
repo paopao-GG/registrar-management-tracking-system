@@ -8,7 +8,8 @@ import api from '@/lib/api';
 interface TabletSession {
   token: string;
   releasedTo: string;
-  studentName: string;
+  studentNames: string[];
+  count: number;
   status:
     | 'pending'
     | 'signed'
@@ -17,9 +18,49 @@ interface TabletSession {
     | 'expired';
 }
 
+/*
+ * Why the tablet cannot be used right now.
+ * - locked: the sign page is open on another device.
+ * - no_staff: no staff member is currently active.
+ */
+type Availability = 'ok' | 'locked' | 'no_staff';
+
+const DEVICE_KEY = 'rtams_tablet_device';
+const SESSION_POLL_MS = 500;
+const UNAVAILABLE_POLL_MS = 3000;
+
+function createDeviceId() {
+  // randomUUID needs a secure context; the tablet may use plain HTTP on the LAN.
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getDeviceId() {
+  try {
+    const saved = localStorage.getItem(DEVICE_KEY);
+    if (saved) return saved;
+
+    const id = createDeviceId();
+    localStorage.setItem(DEVICE_KEY, id);
+    return id;
+  } catch {
+    return createDeviceId();
+  }
+}
+
 export function TabletSignPage() {
+  const [deviceId] = useState(getDeviceId);
+  const tablet = { headers: { 'X-Tablet-Device': deviceId } };
+
   const [session, setSession] =
     useState<TabletSession | null>(null);
+
+  const [availability, setAvailability] =
+    useState<Availability>('ok');
 
   const [loading, setLoading] =
     useState(true);
@@ -30,27 +71,50 @@ export function TabletSignPage() {
   const [confirmed, setConfirmed] =
     useState(false);
 
+  const [consent, setConsent] =
+    useState(false);
+
   const [error, setError] =
     useState<string | null>(null);
 
   const sigRef =
     useRef<SignaturePadRef>(null);
 
+  // Each new signing session needs its own consent.
+  useEffect(() => {
+    setConsent(false);
+  }, [session?.token]);
+
   /*
    * Check for the current signing session.
    *
    * The tablet checks frequently so a new signing
-   * request appears with very little delay.
+   * request appears with very little delay. While the
+   * tablet is unavailable it checks less often.
    */
   useEffect(() => {
     if (submitted || confirmed) return;
 
     let mounted = true;
 
+    const claimDevice = async () => {
+      try {
+        await api.post('/signing/tablet/claim', null, tablet);
+        return true;
+      } catch (err: any) {
+        if (err.response?.status === 423) {
+          return false;
+        }
+
+        throw err;
+      }
+    };
+
     const checkForSession = async () => {
       try {
         const response = await api.get(
-          '/signing/tablet/current'
+          '/signing/tablet/current',
+          tablet
         );
 
         if (!mounted) return;
@@ -58,16 +122,16 @@ export function TabletSignPage() {
         const currentSession =
           response.data.session ?? null;
 
+        setAvailability('ok');
+        setError(null);
+        setLoading(false);
+
         if (!currentSession) {
           setSession(null);
-          setError(null);
-          setLoading(false);
           return;
         }
 
         setSession(currentSession);
-        setError(null);
-        setLoading(false);
 
         /*
          * If the claimant already submitted the signature
@@ -77,13 +141,43 @@ export function TabletSignPage() {
         if (currentSession.status === 'signed') {
           setSubmitted(true);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (!mounted) return;
+
+        const status = err.response?.status;
+
+        if (status === 423) {
+          // Not (or no longer) the registered tablet: try to claim it.
+          try {
+            const claimed = await claimDevice();
+
+            if (!mounted) return;
+
+            if (!claimed) {
+              setAvailability('locked');
+              setSession(null);
+              setLoading(false);
+            }
+          } catch (claimErr) {
+            console.error('Failed to claim tablet', claimErr);
+            if (!mounted) return;
+            setError('Unable to connect to RTAMS.');
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (status === 503) {
+          setAvailability('no_staff');
+          setSession(null);
+          setLoading(false);
+          return;
+        }
+
         console.error(
           'Failed to check tablet session',
           err
         );
-
-        if (!mounted) return;
 
         setError(
           'Unable to connect to RTAMS.'
@@ -95,19 +189,20 @@ export function TabletSignPage() {
 
     checkForSession();
 
-    /*
-     * Faster session detection.
-     */
     const interval = setInterval(
       checkForSession,
-      500
+      availability === 'ok'
+        ? SESSION_POLL_MS
+        : UNAVAILABLE_POLL_MS
     );
 
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, [submitted, confirmed]);
+    // `tablet` only wraps the stable deviceId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submitted, confirmed, availability, deviceId]);
 
   /*
    * Send the current signature drawing to the server.
@@ -140,7 +235,8 @@ export function TabletSignPage() {
 
         await api.post(
           `/signing/sessions/${session.token}/progress`,
-          { signature }
+          { signature },
+          tablet
         );
       } catch (err) {
         console.error(
@@ -161,7 +257,8 @@ export function TabletSignPage() {
     return () => {
       clearInterval(interval);
     };
-  }, [session, submitted, confirmed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, submitted, confirmed, deviceId]);
 
   /*
    * After staff confirms the signature, show
@@ -195,7 +292,8 @@ export function TabletSignPage() {
     const checkConfirmation = async () => {
       try {
         const response = await api.get(
-          `/signing/tablet/status/${session.token}`
+          `/signing/tablet/status/${session.token}`,
+          tablet
         );
 
         if (!mounted) return;
@@ -242,7 +340,8 @@ export function TabletSignPage() {
       mounted = false;
       clearInterval(interval);
     };
-  }, [submitted, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submitted, session, deviceId]);
 
   /*
    * Submit the final signature from the tablet.
@@ -259,6 +358,13 @@ export function TabletSignPage() {
       return;
     }
 
+    if (!consent) {
+      alert(
+        'Please confirm your consent to the capture of your signature.'
+      );
+      return;
+    }
+
     try {
       setError(null);
 
@@ -269,7 +375,9 @@ export function TabletSignPage() {
         `/signing/sessions/${session.token}/sign`,
         {
           signature,
-        }
+          consent: true,
+        },
+        tablet
       );
 
       /*
@@ -310,6 +418,54 @@ export function TabletSignPage() {
 
           <p className="mt-2 text-muted-foreground">
             Connecting to RTAMS...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * The sign page is already open on another device.
+   */
+  if (availability === 'locked') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-xl text-center space-y-4">
+          <h1 className="text-3xl font-semibold">
+            Tablet Already in Use
+          </h1>
+
+          <p className="text-muted-foreground">
+            The RTAMS signature page is already open on another device.
+          </p>
+
+          <p className="text-sm text-muted-foreground">
+            Close it there, or ask Registrar staff to reset the
+            tablet from their dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * No staff member is currently active.
+   */
+  if (availability === 'no_staff') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-xl text-center space-y-4">
+          <h1 className="text-3xl font-semibold">
+            Signing Unavailable
+          </h1>
+
+          <p className="text-muted-foreground">
+            No Registrar staff is currently active.
+          </p>
+
+          <p className="text-sm text-muted-foreground">
+            This page will be available again once a staff
+            member is logged in.
           </p>
         </div>
       </div>
@@ -419,6 +575,17 @@ export function TabletSignPage() {
           <p className="text-2xl font-semibold">
             {session.releasedTo}
           </p>
+
+          {session.count > 1 && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              <p>
+                Claiming {session.count} documents for:
+              </p>
+              <p className="mt-1 max-h-24 overflow-y-auto">
+                {session.studentNames.join('; ')}
+              </p>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -433,14 +600,32 @@ export function TabletSignPage() {
           </label>
 
           <div className="rounded-lg border bg-background p-2">
+            {/* Keep the pad without a background color so the saved PNG stays transparent for the BUP logbook. */}
             <SignaturePadComponent ref={sigRef} />
           </div>
         </div>
 
+        <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-5 w-5 shrink-0"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+          />
+          <span>
+            I agree to the capture and storage of my signature
+            as proof of document release, and I consent to the
+            processing of my personal information in accordance
+            with the Data Privacy Act of 2012 (Republic Act No.
+            10173).
+          </span>
+        </label>
+
         <button
           type="button"
           onClick={handleDone}
-          className="w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          disabled={!consent}
+          className="w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Done
         </button>

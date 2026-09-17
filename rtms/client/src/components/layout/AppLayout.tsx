@@ -1,17 +1,33 @@
+import { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useAuth } from '@/lib/auth';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
+import { useActivityHeartbeat } from '@/hooks/useActivityHeartbeat';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LogOut, LayoutDashboard, FileText, Users, ScrollText, Sun, Moon, GraduationCap } from 'lucide-react';
+import {
+  LogOut,
+  LayoutDashboard,
+  FileText,
+  Users,
+  ScrollText,
+  Sun,
+  Moon,
+  GraduationCap,
+  Menu,
+  X,
+} from 'lucide-react';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { theme, toggle } = useTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useInactivityTimeout(logout);
+  useActivityHeartbeat(!!user);
 
   const isAdmin = user?.role === 'admin';
 
@@ -25,107 +41,103 @@ export function AppLayout() {
       ]
     : [{ to: '/staff', label: 'Dashboard', icon: LayoutDashboard }];
 
-  const ThemeToggle = () => (
-    <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
-      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-    </Button>
-  );
+  const currentPage = navItems.find((item) => item.to === location.pathname);
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar — desktop only */}
-      <aside className="hidden md:flex w-64 flex-col bg-card shadow-md border-r border-border/50">
-        <div className="p-6 border-b border-border/50">
-          <h1 className="text-lg font-bold tracking-tight">RTAMS</h1>
-          <p className="text-xs text-muted-foreground">Bicol University Polangui</p>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all',
-                location.pathname === item.to
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-border/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">{user?.name}</div>
-              <div className="text-xs text-muted-foreground capitalize">{user?.role}</div>
-            </div>
-            <ThemeToggle />
-          </div>
-          <Button variant="ghost" size="sm" className="w-full mt-2 justify-start" onClick={logout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
+    <div className="flex h-screen flex-col">
+      {/* Top bar — pages live in the menu so the content can use the full width */}
+      <header className="z-40 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-card px-3 shadow-sm md:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
           </Button>
-        </div>
-      </aside>
 
-      {/* Mobile top header — both staff and admin */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-card border-b border-border/50 shadow-sm flex items-center justify-between px-4">
-        <div>
           <span className="text-sm font-bold tracking-tight">RTAMS</span>
-          {!isAdmin && <span className="text-xs text-muted-foreground ml-2">{user?.name}</span>}
-        </div>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          {!isAdmin && (
-            <Button variant="ghost" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4 mr-1" />
-              Logout
-            </Button>
+
+          {currentPage && (
+            <span className="truncate text-sm text-muted-foreground">
+              / {currentPage.label}
+            </span>
           )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="hidden text-sm text-muted-foreground sm:inline">
+            {user?.name}
+          </span>
+
+          <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={logout}>
+            <LogOut className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
         </div>
       </header>
 
+      {/* Navigation drawer */}
+      <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border/50 bg-card shadow-lg focus:outline-none">
+            <div className="flex items-start justify-between border-b border-border/50 p-6">
+              <div>
+                <DialogPrimitive.Title className="text-lg font-bold tracking-tight">
+                  RTAMS
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description className="text-xs text-muted-foreground">
+                  Bicol University Polangui
+                </DialogPrimitive.Description>
+              </div>
+
+              <DialogPrimitive.Close
+                className="rounded-sm opacity-70 hover:opacity-100"
+                aria-label="Close menu"
+              >
+                <X className="h-4 w-4" />
+              </DialogPrimitive.Close>
+            </div>
+
+            <nav className="flex-1 space-y-1 p-4">
+              {navItems.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMenuOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all',
+                    location.pathname === item.to
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="border-t border-border/50 p-4">
+              <div className="text-sm font-medium">{user?.name}</div>
+              <div className="text-xs capitalize text-muted-foreground">{user?.role}</div>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
       {/* Main content */}
-      <main className={cn('flex-1 overflow-auto pt-14 md:pt-0', isAdmin && 'pb-16 md:pb-0')}>
-        <div className="p-4 md:p-8">
+      <main className="flex-1 overflow-auto">
+        <div className="p-4 md:p-6">
           <Outlet />
         </div>
       </main>
-
-      {/* Bottom tab bar — admin mobile only */}
-      {isAdmin && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border/50 shadow-lg flex">
-          {navItems.map((item) => {
-            const active = location.pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs transition-colors',
-                  active ? 'text-primary' : 'text-muted-foreground'
-                )}
-              >
-                <item.icon className={cn('h-5 w-5', active && 'stroke-[2.5]')} />
-                <span className="leading-none">{item.label}</span>
-              </Link>
-            );
-          })}
-          {/* Logout item for admin mobile */}
-          <button
-            onClick={logout}
-            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs text-muted-foreground transition-colors"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="leading-none">Logout</span>
-          </button>
-        </nav>
-      )}
     </div>
   );
 }

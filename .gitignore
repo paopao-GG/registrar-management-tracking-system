@@ -1,0 +1,4 @@
+# Local secrets (database password, JWT secret)
+.env
+.env.*
+!.env.example

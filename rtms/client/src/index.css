@@ -55,3 +55,14 @@
     margin: 0;
   }
 }
+
+@layer utilities {
+  /* Hides a native scrollbar while keeping the element scrollable. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

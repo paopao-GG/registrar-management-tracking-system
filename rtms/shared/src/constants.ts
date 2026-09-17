@@ -1,4 +1,4 @@
-export const DOCUMENT_TYPES = ['COR', 'COG', 'CMC', 'AUTH', 'OTR'] as const;
+export const DOCUMENT_TYPES = ['COR', 'COG', 'GMC', 'AUTH', 'OTR'] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
@@ -89,4 +89,56 @@ export function normalizeCourse(input: string): string | null {
   );
 
   return alias ? COURSE_ALIASES[alias] : null;
+}
+/**
+ * Short program name for tables, e.g. "BSIT". Falls back to the
+ * value itself when no alias matches.
+ */
+export function abbreviateCourse(course: string): string {
+  const alias = Object.keys(COURSE_ALIASES).find(
+    (key) => COURSE_ALIASES[key] === course
+  );
+
+  return alias ?? course;
+}
+
+/**
+ * Year level 0 marks an alumni record.
+ */
+export function formatYearLevel(yearLevel: number): string {
+  return yearLevel === 0 ? 'Alumni' : String(yearLevel);
+}
+
+export function formatCourseYear(course: string, yearLevel: number): string {
+  return `${abbreviateCourse(course)}-${formatYearLevel(yearLevel)}`;
+}
+
+export function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+/**
+ * Philippine-time day boundaries for a YYYY-MM-DD range.
+ * The end is exclusive (start of the following day).
+ */
+export function phDayRange(startDate?: string, endDate?: string) {
+  const range: { gte?: Date; lt?: Date } = {};
+
+  if (startDate) {
+    range.gte = new Date(`${startDate}T00:00:00+08:00`);
+  }
+
+  if (endDate) {
+    const end = new Date(`${endDate}T00:00:00+08:00`);
+    end.setUTCDate(end.getUTCDate() + 1);
+    range.lt = end;
+  }
+
+  return range;
 }

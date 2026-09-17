@@ -32,5 +32,6 @@ export default async function handler(req, res) {
   });
 
   res.writeHead(response.statusCode, response.headers);
-  res.end(response.body);
+  // rawPayload keeps binary responses (xlsx exports) intact.
+  res.end(response.rawPayload);
 }

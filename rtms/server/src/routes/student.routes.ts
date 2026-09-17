@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import {
+  COURSE_ALIASES,
   createStudentSchema,
   bulkImportSchema,
   formatStudentName,
@@ -18,8 +19,11 @@ function toApiStudent(s: any) {
     firstName: s.firstName,
     middleName: s.middleName,
     email: s.email,
+    sex: s.sex,
+    contactNumber: s.contactNumber,
     course: s.course,
     yearLevel: s.yearLevel,
+    isAlumni: s.isAlumni,
     name: formatStudentName(s),
     createdAt: s.createdAt,
   };
@@ -73,6 +77,80 @@ export async function studentRoutes(app: FastifyInstance) {
     });
 
     return students.map(toApiStudent);
+  });
+
+  /*
+   * Student directory — Admin only.
+   *
+   * Paginated list of active students with a total count,
+   * optionally filtered by program alias (e.g. BSIT).
+   */
+  app.get('/api/students/directory', async (request, reply) => {
+    if (request.user.role !== 'admin') {
+      return reply.status(403).send({
+        error: 'Admin access required',
+      });
+    }
+
+    const query = request.query as {
+      q?: string;
+      course?: string;
+      page?: string;
+      limit?: string;
+    };
+
+    const term = query.q?.trim();
+    const course = query.course
+      ? COURSE_ALIASES[query.course]
+      : undefined;
+
+    if (query.course && !course) {
+      return reply.status(400).send({
+        error: `Invalid program '${query.course}'`,
+      });
+    }
+
+    const page = Math.max(1, parseInt(query.page ?? '1') || 1);
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(query.limit ?? '50') || 50)
+    );
+
+    const where = {
+      active: true,
+      // Alumni are request-only records, not enrolled students.
+      isAlumni: false,
+      ...(course ? { course } : {}),
+      ...(term
+        ? {
+            OR: [
+              { lastName: { contains: term, mode: 'insensitive' as const } },
+              { firstName: { contains: term, mode: 'insensitive' as const } },
+              { studentNumber: { contains: term, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [students, total] = await Promise.all([
+      prisma.student.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' },
+        ],
+      }),
+      prisma.student.count({ where }),
+    ]);
+
+    return {
+      students: students.map(toApiStudent),
+      total,
+      page,
+      limit,
+    };
   });
 
   /*
@@ -166,8 +244,15 @@ export async function studentRoutes(app: FastifyInstance) {
             parsed.data.middleName ?? null,
           email:
             parsed.data.email ?? null,
+          sex: parsed.data.sex ?? null,
+          contactNumber:
+            parsed.data.contactNumber ?? null,
           course,
-          yearLevel: parsed.data.yearLevel,
+          // Year level 0 marks an alumni record.
+          yearLevel: parsed.data.isAlumni
+            ? 0
+            : parsed.data.yearLevel!,
+          isAlumni: parsed.data.isAlumni ?? false,
           active: true,
         },
       });
@@ -238,6 +323,8 @@ export async function studentRoutes(app: FastifyInstance) {
           firstName: string;
           middleName: string | null;
           email: string | null;
+          sex: string | null;
+          contactNumber: string | null;
           course: string;
           yearLevel: number;
         };
@@ -280,6 +367,9 @@ export async function studentRoutes(app: FastifyInstance) {
               row.middleName ?? null,
             email:
               row.email ?? null,
+            sex: row.sex ?? null,
+            contactNumber:
+              row.contactNumber ?? null,
             course,
             yearLevel: row.yearLevel,
           },
@@ -387,6 +477,8 @@ export async function studentRoutes(app: FastifyInstance) {
             await tx.student.updateMany({
               where: {
                 active: true,
+                // Alumni are added per request, not by the roster.
+                isAlumni: false,
                 studentNumber: {
                   notIn:
                     Array.from(
@@ -426,6 +518,10 @@ export async function studentRoutes(app: FastifyInstance) {
                     item.data.middleName,
                   email:
                     item.data.email,
+                  sex:
+                    item.data.sex,
+                  contactNumber:
+                    item.data.contactNumber,
                   course:
                     item.data.course,
                   yearLevel:
@@ -452,6 +548,10 @@ export async function studentRoutes(app: FastifyInstance) {
                     item.data.middleName,
                   email:
                     item.data.email,
+                  sex:
+                    item.data.sex,
+                  contactNumber:
+                    item.data.contactNumber,
                   course:
                     item.data.course,
                   yearLevel:

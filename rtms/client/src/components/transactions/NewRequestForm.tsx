@@ -9,6 +9,7 @@ import { DOCUMENT_TYPES } from '@rtams/shared';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
+import { GraduationCap } from 'lucide-react';
 
 interface Props {
   onCreated: () => void;
@@ -22,7 +23,9 @@ export function NewRequestForm({ onCreated }: Props) {
   );
   const [others, setOthers] = useState('');
   const [othersCount, setOthersCount] = useState(0);
-  const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [alumniOpen, setAlumniOpen] = useState(false);
+  // Remounts the search box so it clears after a save or an alumni entry.
+  const [studentFieldKey, setStudentFieldKey] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -51,6 +54,7 @@ export function NewRequestForm({ onCreated }: Props) {
       setDocs(Object.fromEntries(DOCUMENT_TYPES.map((d: string) => [d, 0])));
       setOthers('');
       setOthersCount(0);
+      setStudentFieldKey((k) => k + 1);
       onCreated();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to create request');
@@ -79,10 +83,21 @@ export function NewRequestForm({ onCreated }: Props) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Student Name</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Student Name</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAlumniOpen(true)}
+                >
+                  <GraduationCap className="h-4 w-4 mr-2" />
+                  Alumni
+                </Button>
+              </div>
               <StudentAutocomplete
+                key={studentFieldKey}
                 onSelect={(s) => setSelectedStudent(s)}
-                onAddNew={() => setAddStudentOpen(true)}
                 onImported={onCreated}
               />
             </div>
@@ -90,12 +105,21 @@ export function NewRequestForm({ onCreated }: Props) {
             {selectedStudent && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Program</label>
-                  <Input value={selectedStudent.course} disabled />
+                  <label className="text-sm font-medium">
+                    {selectedStudent.isAlumni ? 'Alumni' : 'Student'}
+                  </label>
+                  <Input value={selectedStudent.name} disabled />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Year Level</label>
-                  <Input value={`Year ${selectedStudent.yearLevel}`} disabled />
+                  <label className="text-sm font-medium">Program &amp; Year</label>
+                  <Input
+                    value={`${selectedStudent.course} - ${
+                      selectedStudent.isAlumni
+                        ? 'Alumni'
+                        : `Year ${selectedStudent.yearLevel}`
+                    }`}
+                    disabled
+                  />
                 </div>
               </div>
             )}
@@ -138,9 +162,13 @@ export function NewRequestForm({ onCreated }: Props) {
       </Card>
 
       <AddStudentDialog
-        open={addStudentOpen}
-        onClose={() => setAddStudentOpen(false)}
-        onCreated={(student) => setSelectedStudent(student)}
+        open={alumniOpen}
+        mode="alumni"
+        onClose={() => setAlumniOpen(false)}
+        onCreated={(alumni) => {
+          setStudentFieldKey((k) => k + 1);
+          setSelectedStudent(alumni);
+        }}
       />
     </>
   );

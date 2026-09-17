@@ -1,3 +1,5 @@
+// Load environment variables before the client reads DATABASE_URL.
+import './env.js';
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };

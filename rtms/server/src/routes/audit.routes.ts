@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import { prisma } from '../config/db.js';
+import { phDayRange } from '@rtams/shared';
 
 export async function auditRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);
@@ -13,17 +14,11 @@ export async function auditRoutes(app: FastifyInstance) {
 
     if (query.transactionId) where.transactionId = query.transactionId;
     if (query.startDate || query.endDate) {
-      where.timestamp = {};
-      if (query.startDate) where.timestamp.gte = new Date(query.startDate);
-      if (query.endDate) {
-        const end = new Date(query.endDate);
-        end.setHours(23, 59, 59, 999);
-        where.timestamp.lte = end;
-      }
+      where.timestamp = phDayRange(query.startDate, query.endDate);
     }
 
-    const page = parseInt(query.page || '1');
-    const limit = parseInt(query.limit || '50');
+    const page = Math.max(1, parseInt(query.page || '1') || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(query.limit || '50') || 50));
     const skip = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([

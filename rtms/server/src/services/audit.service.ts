@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../config/db.js';
 
 export async function logStatusChange(
@@ -6,9 +7,10 @@ export async function logStatusChange(
   previousStatus: string | null,
   newStatus: string,
   performedBy: string,
-  performedByName: string
+  performedByName: string,
+  tx: Prisma.TransactionClient = prisma
 ) {
-  await prisma.auditLog.create({
+  await tx.auditLog.create({
     data: {
       transactionId,
       action,

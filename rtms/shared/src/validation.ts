@@ -24,18 +24,43 @@ const optionalTrimmedString = z.preprocess(
   z.string().min(1).optional(),
 );
 
-export const createStudentSchema = z.object({
-  lastName: z.string().trim().min(1, 'Last name is required'),
-  firstName: z.string().trim().min(1, 'First name is required'),
-  middleName: optionalTrimmedString,
-  studentNumber: optionalTrimmedString,
-  email: z.preprocess(
-    (val) => (typeof val === 'string' ? val.trim() : val),
-    z.string().email('Invalid email').optional(),
-  ),
-  course: z.string().min(1, 'Course is required'),
-  yearLevel: z.number().int().min(1).max(4),
-});
+const sexField = z.preprocess(
+  (val) => {
+    if (typeof val !== 'string') return val;
+    const v = val.trim().toUpperCase();
+    if (!v) return undefined;
+    if (v === 'MALE') return 'M';
+    if (v === 'FEMALE') return 'F';
+    return v;
+  },
+  z.enum(['M', 'F'], { errorMap: () => ({ message: 'Sex must be M or F' }) }).optional(),
+);
+
+export const createStudentSchema = z
+  .object({
+    lastName: z.string().trim().min(1, 'Last name is required'),
+    firstName: z.string().trim().min(1, 'First name is required'),
+    middleName: optionalTrimmedString,
+    studentNumber: optionalTrimmedString,
+    email: z.preprocess(
+      (val) => (typeof val === 'string' ? val.trim() : val),
+      z.string().email('Invalid email').optional(),
+    ),
+    sex: sexField,
+    contactNumber: optionalTrimmedString,
+    course: z.string().min(1, 'Course is required'),
+    isAlumni: z.boolean().optional(),
+    yearLevel: z.number().int().min(1).max(4).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (!val.isAlumni && val.yearLevel === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['yearLevel'],
+        message: 'Year level is required',
+      });
+    }
+  });
 
 const yearLevelFromAny = z.preprocess((val) => {
   if (typeof val === 'number') return val;
@@ -55,6 +80,11 @@ export const bulkImportRowSchema = z.object({
     (val) => (typeof val === 'string' ? val.trim() : val),
     z.string().email('Invalid email').optional(),
   ),
+  sex: sexField,
+  contactNumber: z.preprocess(
+    (val) => (val === undefined || val === null ? undefined : String(val).trim() || undefined),
+    z.string().optional(),
+  ),
   course: z.string().trim().min(1, 'Program is required'),
   yearLevel: yearLevelFromAny,
 });
@@ -69,7 +99,7 @@ export const createTransactionSchema = z.object({
   requestedDocuments: z.object({
     COR: z.number().int().min(0),
     COG: z.number().int().min(0),
-    CMC: z.number().int().min(0),
+    GMC: z.number().int().min(0),
     AUTH: z.number().int().min(0),
     OTR: z.number().int().min(0),
   }),
@@ -82,7 +112,20 @@ export const releaseTransactionSchema = z.object({
   signature: z.string().min(1, 'Signature is required'),
 });
 
+export const bulkIdsSchema = z.object({
+  ids: z
+    .array(z.string().min(1))
+    .min(1, 'Select at least one transaction')
+    .max(200, 'Cannot process more than 200 transactions at once'),
+});
+
+export const bulkReleaseSchema = bulkIdsSchema.extend({
+  releasedTo: z.string().trim().min(1, 'Claimer name is required'),
+  signature: z.string().min(1, 'Signature is required'),
+});
+
 export const reportFiltersSchema = z.object({
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
+  format: z.enum(['json', 'arta', 'bup']).default('json'),
 });

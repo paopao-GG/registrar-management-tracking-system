@@ -47,7 +47,9 @@ All three parts of the monorepo (`shared`, `server`, `client`) build together in
 
 ### 1.2 Apply the database schema
 
-The tables (User, Student, Transaction, AuditLog) have already been created. If you need to re-apply, run from your local machine:
+Run this from your local machine to create the tables (User, Student, Transaction, AuditLog, SigningSession, TabletLock) or to apply new migrations.
+
+**Apply new migrations before deploying code that needs them.** The v2 release adds the migration `20260917000000_v2_updates` (renames CMC to GMC, adds student Sex/Contact Number/alumni fields, staff activity, signing consent and the tablet lock). The v2 code will fail against a database that hasn't been migrated.
 
 ```powershell
 cd rtms/server
@@ -182,9 +184,12 @@ You should land on the dashboard.
 ### 5.3 Test the API end-to-end
 
 From the dashboard:
-1. Go to **Students** → verify 8 sample students appear
-2. Click **New Transaction** → select a student → create a transaction
-3. Review and release the transaction → verify it progresses through statuses
+1. Open the menu → **Students** → verify the sample students and the total count appear
+2. Log in as staff → create a request → **Start Processing**
+3. Log in as admin → **Sign** the request
+4. Open `<your-deployment-url>/sign` on the signing tablet while a staff account is logged in → release the request as staff → verify it becomes **Released**
+5. Open the same `/sign` URL on a second device → it should say **Tablet Already in Use**
+6. As admin, open **Reports** → download both the **ARTA-Logbook** and **BUP-Logbook** exports and open them in Excel
 
 If any of these fail, check the **Troubleshooting** section.
 
@@ -247,6 +252,18 @@ Supabase database is paused (free tier auto-pauses after inactivity). Open the S
 
 `JWT_SECRET` differs between environments or changed between deploys. Set a single strong value and don't rotate it unless you also invalidate existing tokens.
 
+### Excel exports download but won't open
+
+`rtms/api/index.mjs` must send `response.rawPayload` (bytes), not `response.body` (text). Sending the body as text corrupts binary files.
+
+### The signing tablet says "Signing Unavailable"
+
+A staff account must be logged in and used within the last 3 minutes. Log in as staff on the office PC and move the mouse; the tablet retries every few seconds.
+
+### The signing tablet says "Tablet Already in Use"
+
+The sign page is open on another device, or the tablet's browser data was cleared. Close the other page and wait about a minute, or click **Reset Tablet** on the staff or admin dashboard.
+
 ### Cold start is slow (3–5 seconds on first request)
 
 Normal for Prisma on serverless. Subsequent requests within ~15 minutes will be fast. For consistently fast response times you'd need to either:
@@ -284,9 +301,9 @@ Supabase PostgreSQL
 ### Files that make deployment work
 
 - `rtms/vercel.json` — Tells Vercel where the build output and function live
-- `rtms/api/index.mjs` — Serverless entry point; wraps Fastify with `inject()`
+- `rtms/api/index.mjs` — Serverless entry point; wraps Fastify with `inject()` and returns the raw response bytes
 - `rtms/server/src/app.ts` — Exports `buildApp()` factory (no `.listen()` in serverless)
-- `rtms/server/src/lib/prisma.ts` — Singleton Prisma client (survives function reuse)
+- `rtms/server/src/config/db.ts` — Singleton Prisma client (survives function reuse)
 - `rtms/server/prisma/schema.prisma` — `binaryTargets` includes `rhel-openssl-3.0.x` for Vercel's runtime
 
 ---

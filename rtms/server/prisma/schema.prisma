@@ -16,6 +16,7 @@ model User {
   passwordHash String
   role         String
   status       String   @default("active")
+  lastActiveAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -31,9 +32,12 @@ model Student {
   firstName     String
   middleName    String?
   email         String?
+  sex           String?
+  contactNumber String?
   course        String
   yearLevel     Int
-  active Boolean @default(true)
+  active        Boolean  @default(true)
+  isAlumni      Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -52,7 +56,7 @@ model Transaction {
   studentYearLevel Int
   docCOR           Int       @default(0)
   docCOG           Int       @default(0)
-  docCMC           Int       @default(0)
+  docGMC           Int       @default(0)
   docAUTH          Int       @default(0)
   docOTR           Int       @default(0)
   others           String    @default("")
@@ -102,13 +106,25 @@ model SigningSession {
   transactionId String
   transaction   Transaction @relation(fields: [transactionId], references: [id])
 
+  // All transactions released under this session (bulk release).
+  // transactionId holds the first one.
+  transactionIds String[] @default([])
+
   token         String   @unique
   releasedTo    String
   liveSignature String?
   status        String   @default("pending")
+  consentAt     DateTime?
   createdAt     DateTime @default(now())
   completedAt   DateTime?
 
   @@index([transactionId])
   @@index([status])
+}
+
+// Single row: the one device allowed to use the tablet sign page.
+model TabletLock {
+  id         String   @id @default("tablet")
+  deviceId   String
+  lastSeenAt DateTime
 }

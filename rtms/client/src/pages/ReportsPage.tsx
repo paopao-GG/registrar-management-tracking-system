@@ -2,21 +2,23 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TopScrollContainer } from '@/components/ui/top-scroll';
 import api from '@/lib/api';
 import { Download } from 'lucide-react';
+import type { ArtaReportRow, ReportFormat } from '@rtams/shared';
 
-interface ReportRow {
-  clientName: string;
-  serviceAvailed: string;
-  completionDate: string;
-}
+const EXPORTS: Array<{ format: Exclude<ReportFormat, 'json'>; label: string; file: string }> = [
+  { format: 'arta', label: 'ARTA-Logbook export', file: 'ARTA-Logbook' },
+  { format: 'bup', label: 'BUP-Logbook export', file: 'BUP-Logbook' },
+];
 
 export function ReportsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [rows, setRows] = useState<ReportRow[]>([]);
+  const [rows, setRows] = useState<ArtaReportRow[]>([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<ReportFormat | null>(null);
 
   const fetchReport = async () => {
     if (!startDate || !endDate) {
@@ -35,20 +37,23 @@ export function ReportsPage() {
     }
   };
 
-  const exportCsv = async () => {
+  const exportLogbook = async (format: Exclude<ReportFormat, 'json'>, file: string) => {
+    setExporting(format);
     try {
       const { data } = await api.get('/reports', {
-        params: { startDate, endDate, format: 'csv' },
+        params: { startDate, endDate, format },
         responseType: 'blob',
       });
-      const url = URL.createObjectURL(new Blob([data]));
+      const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `report-${startDate}-to-${endDate}.csv`;
+      a.download = `${file}-${startDate}-to-${endDate}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert('Failed to export CSV');
+      alert('Failed to export logbook');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -61,7 +66,7 @@ export function ReportsPage() {
           <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">Start Date</label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -73,12 +78,19 @@ export function ReportsPage() {
             <Button onClick={fetchReport} disabled={loading} className="w-full sm:w-auto">
               {loading ? 'Loading...' : 'Generate'}
             </Button>
-            {rows.length > 0 && (
-              <Button variant="outline" onClick={exportCsv} className="w-full sm:w-auto">
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            )}
+            {rows.length > 0 &&
+              EXPORTS.map(({ format, label, file }) => (
+                <Button
+                  key={format}
+                  variant="outline"
+                  onClick={() => exportLogbook(format, file)}
+                  disabled={exporting !== null}
+                  className="w-full sm:w-auto"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {exporting === format ? 'Exporting...' : label}
+                </Button>
+              ))}
           </div>
         </CardContent>
       </Card>
@@ -91,26 +103,30 @@ export function ReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <TopScrollContainer>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="px-3 py-2 text-left font-medium">External Client Name</th>
-                    <th className="px-3 py-2 text-left font-medium">Service Availed</th>
-                    <th className="px-3 py-2 text-left font-medium">Day of Service Completion</th>
+                    <th className="px-3 py-2 text-left font-medium">Requested Documents/Services</th>
+                    <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Contact Number</th>
+                    <th className="px-3 py-2 text-left font-medium">University Email Address</th>
+                    <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Date of Transaction</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
                     <tr key={i} className="border-b">
                       <td className="px-3 py-2 font-medium">{row.clientName}</td>
-                      <td className="px-3 py-2">{row.serviceAvailed}</td>
-                      <td className="px-3 py-2">{row.completionDate}</td>
+                      <td className="px-3 py-2">{row.requestedDocuments}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{row.contactNumber || '—'}</td>
+                      <td className="px-3 py-2">{row.email || '—'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{row.transactionDate}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TopScrollContainer>
           </CardContent>
         </Card>
       )}

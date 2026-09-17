@@ -7,7 +7,9 @@ import {
 } from '@/components/ui/card';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
+import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { Input } from '@/components/ui/input';
+import { getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
 import {
   FileText,
@@ -16,12 +18,6 @@ import {
   CheckCircle,
 } from 'lucide-react';
 
-function getPhilippineDate() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-  }).format(new Date());
-}
-
 export function AdminDashboard() {
   const [transactions, setTransactions] = useState<any[]>([]);
 
@@ -29,63 +25,25 @@ export function AdminDashboard() {
     newRequests: 0,
     processing: 0,
     readyForRelease: 0,
-    todayCompleted: 0,
+    completed: 0,
   });
 
+  const [dateFilter, setDateFilter] = useState(getPhilippineDate);
   const [statusFilter, setStatusFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const [signId, setSignId] = useState<string | null>(null);
+  const [signIds, setSignIds] = useState<string[]>([]);
 
-  const fetchStats = useCallback(async () => {
-    const today = getPhilippineDate();
-
-    const [
-      pendingRes,
-      processingRes,
-      readyRes,
-      todayReleasedRes,
-    ] = await Promise.all([
-      api.get('/transactions', {
-        params: {
-          status: 'Pending',
-          _t: Date.now(),
-        },
-      }),
-
-      api.get('/transactions', {
-        params: {
-          status: 'Processing',
-          _t: Date.now(),
-        },
-      }),
-
-      api.get('/transactions', {
-        params: {
-          status: 'Ready for Release',
-          _t: Date.now(),
-        },
-      }),
-
-      api.get('/transactions', {
-        params: {
-          status: 'Released',
-          startDate: today,
-          endDate: today,
-          _t: Date.now(),
-        },
-      }),
-    ]);
-
-    setStats({
-      newRequests: pendingRes.data.total,
-      processing: processingRes.data.total,
-      readyForRelease: readyRes.data.total,
-      todayCompleted: todayReleasedRes.data.total,
-    });
-  }, []);
+  // The dashboard always shows one day; an empty picker means today.
+  const day = dateFilter || getPhilippineDate();
+  const isToday = day === getPhilippineDate();
 
   const fetchData = useCallback(async () => {
+    const dayParams = {
+      startDate: day,
+      endDate: day,
+    };
+
     const params: Record<string, string | number> = {
+      ...dayParams,
       _t: Date.now(),
     };
 
@@ -93,26 +51,46 @@ export function AdminDashboard() {
       params.status = statusFilter;
     }
 
-    if (dateFilter) {
-      params.startDate = dateFilter;
-      params.endDate = dateFilter;
-    }
-
-    try {
-      const { data } = await api.get('/transactions', {
-        params,
+    const countFor = (status: string) =>
+      api.get('/transactions', {
+        params: {
+          ...dayParams,
+          status,
+          limit: 1,
+          _t: Date.now(),
+        },
       });
 
-      setTransactions(data.transactions);
+    try {
+      const [
+        transactionsRes,
+        pendingRes,
+        processingRes,
+        readyRes,
+        releasedRes,
+      ] = await Promise.all([
+        api.get('/transactions', { params }),
+        countFor('Pending'),
+        countFor('Processing'),
+        countFor('Ready for Release'),
+        countFor('Released'),
+      ]);
 
-      await fetchStats();
+      setTransactions(transactionsRes.data.transactions);
+
+      setStats({
+        newRequests: pendingRes.data.total,
+        processing: processingRes.data.total,
+        readyForRelease: readyRes.data.total,
+        completed: releasedRes.data.total,
+      });
     } catch (error) {
       console.error(
         'Failed to refresh admin dashboard:',
         error
       );
     }
-  }, [statusFilter, dateFilter, fetchStats]);
+  }, [statusFilter, day]);
 
   // Initial load and refresh whenever filters change.
   useEffect(() => {
@@ -130,9 +108,13 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">
-        Admin Dashboard
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">
+          Admin Dashboard
+        </h2>
+
+        <ResetTabletButton />
+      </div>
 
       {/* Dashboard Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -194,34 +176,45 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Today's Completed */}
+        {/* Completed */}
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-3">
               <CheckCircle className="h-8 w-8 text-green-500" />
 
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Today's Completed
+                {isToday ? "Today's Completed" : 'Completed'}
               </CardTitle>
             </div>
           </CardHeader>
 
           <CardContent>
             <div className="text-3xl font-bold">
-              {stats.todayCompleted}
+              {stats.completed}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* All Requests */}
+      {/* Requests */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            All Requests
+            {isToday ? "Today's Requests" : 'Requests'}
           </CardTitle>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-2">
+
+            {/* Date Filter */}
+            <Input
+              type="date"
+              value={day}
+              max={getPhilippineDate()}
+              onChange={(e) =>
+                setDateFilter(e.target.value)
+              }
+              className="w-full sm:w-48"
+            />
 
             {/* Status Filter */}
             <select
@@ -251,34 +244,24 @@ export function AdminDashboard() {
                 Released
               </option>
             </select>
-
-            {/* Date Filter */}
-            <Input
-              type="date"
-              value={dateFilter}
-              onChange={(e) =>
-                setDateFilter(e.target.value)
-              }
-              className="w-full sm:w-48"
-            />
           </div>
         </CardHeader>
 
         <CardContent>
-  <TransactionTable
-    transactions={transactions}
-    onSign={(id) => setSignId(id)}
-    userRole="admin"
-    showActions={true}
-  />
-</CardContent>
+          <TransactionTable
+            transactions={transactions}
+            onSign={setSignIds}
+            userRole="admin"
+            showActions={true}
+          />
+        </CardContent>
       </Card>
 
       {/* Sign Dialog */}
       <SignDialog
-        open={!!signId}
-        transactionId={signId}
-        onClose={() => setSignId(null)}
+        open={signIds.length > 0}
+        transactionIds={signIds}
+        onClose={() => setSignIds([])}
         onSigned={fetchData}
       />
     </div>

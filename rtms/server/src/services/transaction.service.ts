@@ -1,15 +1,21 @@
+import type { Transaction } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { logStatusChange } from './audit.service.js';
 import { toDocColumns, toApiTransaction } from '../utils/doc-mapper.js';
-import { formatStudentName } from '@rtams/shared';
+import { formatStudentName, phDayRange } from '@rtams/shared';
 
 interface CreateInput {
   studentId: string;
-  requestedDocuments: { COR: number; COG: number; CMC: number; AUTH: number; OTR: number };
+  requestedDocuments: { COR: number; COG: number; GMC: number; AUTH: number; OTR: number };
   others: string;
   othersCount: number;
   userId: string;
   userName: string;
+}
+
+interface Actor {
+  id: string;
+  name: string;
 }
 
 export async function createTransaction(input: CreateInput) {
@@ -45,37 +51,91 @@ export async function createTransaction(input: CreateInput) {
   return toApiTransaction(transaction);
 }
 
+/*
+ * Move a set of transactions from one status to the next in a
+ * single database transaction. Every transaction must currently be
+ * in `from`; otherwise nothing is changed.
+ */
+async function transition(
+  ids: string[],
+  from: string,
+  to: string,
+  action: string,
+  actor: Actor,
+  buildData: (t: Transaction, now: Date) => Record<string, unknown>
+) {
+  const uniqueIds = Array.from(new Set(ids));
+
+  return prisma.$transaction(async (tx) => {
+    const transactions = await tx.transaction.findMany({
+      where: { id: { in: uniqueIds } },
+    });
+
+    if (transactions.length !== uniqueIds.length) {
+      throw new Error('Transaction not found');
+    }
+
+    const invalid = transactions.filter((t) => t.status !== from);
+
+    if (invalid.length > 0) {
+      const names = invalid.map((t) => t.studentName).join(', ');
+      throw new Error(
+        `Transaction must be in ${from} status to ${action.toLowerCase()}: ${names}`
+      );
+    }
+
+    const now = new Date();
+    const updated = [];
+
+    for (const t of transactions) {
+      updated.push(
+        await tx.transaction.update({
+          where: { id: t.id },
+          data: { status: to, ...buildData(t, now) },
+        })
+      );
+
+      await logStatusChange(t.id, action, from, to, actor.id, actor.name, tx);
+    }
+
+    return updated.map(toApiTransaction);
+  }, { timeout: 30_000 });
+}
+
+export function bulkStartProcessing(ids: string[], actor: Actor) {
+  return transition(ids, 'Pending', 'Processing', 'Started', actor, () => ({}));
+}
+
+export function bulkSign(ids: string[], actor: Actor) {
+  return transition(ids, 'Processing', 'Ready for Release', 'Signed', actor, (t, now) => ({
+    reviewedBy: actor.id,
+    reviewedByName: actor.name,
+    reviewedAt: now,
+    duration: now.getTime() - t.preparedAt.getTime(),
+  }));
+}
+
+export function bulkRelease(
+  ids: string[],
+  releasedTo: string,
+  signature: string,
+  actor: Actor
+) {
+  return transition(ids, 'Ready for Release', 'Released', 'Released', actor, (_t, now) => ({
+    releasedTo,
+    signature,
+    releasedAt: now,
+  }));
+}
+
+export async function startProcessing(transactionId: string, userId: string, userName: string) {
+  const [transaction] = await bulkStartProcessing([transactionId], { id: userId, name: userName });
+  return transaction;
+}
+
 export async function signTransaction(transactionId: string, reviewerId: string, reviewerName: string) {
-  const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
-  if (!transaction) throw new Error('Transaction not found');
-  if (transaction.status !== 'Processing') {
-    throw new Error('Transaction must be in Processing status to sign');
-  }
-
-  const now = new Date();
-  const duration = now.getTime() - transaction.preparedAt.getTime();
-
-  const updated = await prisma.transaction.update({
-    where: { id: transactionId },
-    data: {
-      status: 'Ready for Release',
-      reviewedBy: reviewerId,
-      reviewedByName: reviewerName,
-      reviewedAt: now,
-      duration,
-    },
-  });
-
-  await logStatusChange(
-    transactionId,
-    'Signed',
-    'Processing',
-    'Ready for Release',
-    reviewerId,
-    reviewerName
-  );
-
-  return toApiTransaction(updated);
+  const [transaction] = await bulkSign([transactionId], { id: reviewerId, name: reviewerName });
+  return transaction;
 }
 
 export async function releaseTransaction(
@@ -85,48 +145,11 @@ export async function releaseTransaction(
   userId: string,
   userName: string
 ) {
-  const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
-  if (!transaction) throw new Error('Transaction not found');
-  if (transaction.status !== 'Ready for Release') {
-    throw new Error('Transaction must be in Ready for Release status to release');
-  }
-
-  const updated = await prisma.transaction.update({
-    where: { id: transactionId },
-    data: {
-      status: 'Released',
-      releasedTo,
-      signature,
-      releasedAt: new Date(),
-    },
+  const [transaction] = await bulkRelease([transactionId], releasedTo, signature, {
+    id: userId,
+    name: userName,
   });
-
-  await logStatusChange(
-    transactionId,
-    'Released',
-    'Ready for Release',
-    'Released',
-    userId,
-    userName
-  );
-
-  return toApiTransaction(updated);
-}
-
-export async function startProcessing(transactionId: string, userId: string, userName: string) {
-  const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
-  if (!transaction) throw new Error('Transaction not found');
-  if (transaction.status !== 'Pending') {
-    throw new Error('Transaction must be in Pending status to start processing');
-  }
-
-  const updated = await prisma.transaction.update({
-    where: { id: transactionId },
-    data: { status: 'Processing' },
-  });
-
-  await logStatusChange(transactionId, 'Started', 'Pending', 'Processing', userId, userName);
-  return toApiTransaction(updated);
+  return transaction;
 }
 
 interface QueryFilters {
@@ -147,26 +170,8 @@ export async function getTransactions(filters: QueryFilters) {
   if (filters.search) where.studentName = { contains: filters.search, mode: 'insensitive' };
 
   if (filters.startDate || filters.endDate) {
-  where.preparedAt = {};
-
-  if (filters.startDate) {
-    where.preparedAt.gte = new Date(
-      `${filters.startDate}T00:00:00+08:00`
-    );
+    where.preparedAt = phDayRange(filters.startDate, filters.endDate);
   }
-
-  if (filters.endDate) {
-    const endDate = new Date(
-      `${filters.endDate}T00:00:00+08:00`
-    );
-
-    // Exclusive upper boundary: start of the following
-    // Philippine calendar day.
-    endDate.setUTCDate(endDate.getUTCDate() + 1);
-
-    where.preparedAt.lt = endDate;
-  }
-}
 
   const page = filters.page || 1;
   const limit = filters.limit || 50;

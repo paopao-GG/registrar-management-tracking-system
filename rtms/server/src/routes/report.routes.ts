@@ -2,39 +2,41 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import { reportFiltersSchema } from '@rtams/shared';
-import { generateReport } from '../services/report.service.js';
-import { toCsv } from '../utils/csv.js';
+import { generateBupRows, generateReport } from '../services/report.service.js';
+import { buildArtaWorkbook, buildBupWorkbook } from '../utils/logbook-xlsx.js';
+
+const XLSX_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export async function reportRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);
   app.addHook('preHandler', requireAdmin);
 
   app.get('/api/reports', async (request, reply) => {
-    const query = request.query as any;
-    const parsed = reportFiltersSchema.safeParse({
-      startDate: query.startDate,
-      endDate: query.endDate,
-    });
+    const parsed = reportFiltersSchema.safeParse(request.query);
 
     if (!parsed.success) {
       return reply.status(400).send({ error: parsed.error.issues[0].message });
     }
 
-    const report = await generateReport(parsed.data.startDate, parsed.data.endDate);
+    const { startDate, endDate, format } = parsed.data;
 
-    if (query.format === 'csv') {
-      const csvRows = report.rows.map((row: any) => ({
-        'External Client Name': row.clientName,
-        'Service Availed': row.serviceAvailed,
-        'Day of Service Completion': row.completionDate,
-      }));
-
-      const csv = toCsv(csvRows);
-      reply.header('Content-Type', 'text/csv');
-      reply.header('Content-Disposition', `attachment; filename=report-${parsed.data.startDate}-to-${parsed.data.endDate}.csv`);
-      return csv;
+    if (format === 'json') {
+      return generateReport(startDate, endDate);
     }
 
-    return report;
+    const buffer =
+      format === 'arta'
+        ? await buildArtaWorkbook((await generateReport(startDate, endDate)).rows)
+        : await buildBupWorkbook(await generateBupRows(startDate, endDate));
+
+    const name = format === 'arta' ? 'ARTA-Logbook' : 'BUP-Logbook';
+
+    reply.header('Content-Type', XLSX_TYPE);
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename=${name}-${startDate}-to-${endDate}.xlsx`
+    );
+    return reply.send(buffer);
   });
 }

@@ -7,10 +7,15 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { NewRequestForm } from '@/components/transactions/NewRequestForm';
-import { TransactionTable } from '@/components/transactions/TransactionTable';
+import {
+  TransactionTable,
+  type ReleaseTarget,
+} from '@/components/transactions/TransactionTable';
 import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
 import { StartProcessingDialog } from '@/components/transactions/StartProcessingDialog';
+import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { useAuth } from '@/lib/auth';
+import { getPhilippineDate, getYesterdayPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
 import {
   FileText,
@@ -19,53 +24,23 @@ import {
   Loader,
 } from 'lucide-react';
 
-function getPhilippineDate() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-  }).format(new Date());
-}
-
-function getYesterdayPhilippineDate() {
-  const today = getPhilippineDate();
-
-  const date = new Date(`${today}T00:00:00+08:00`);
-  date.setUTCDate(date.getUTCDate() - 1);
-
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-  }).format(date);
-}
-
-function getDateRange(
+/*
+ * The dashboard always shows a single day. A custom
+ * filter without a picked date falls back to today.
+ */
+function getSelectedDay(
   dateFilter: string,
   customDate: string
 ) {
-  if (dateFilter === 'today') {
-    const today = getPhilippineDate();
-
-    return {
-      startDate: today,
-      endDate: today,
-    };
-  }
-
   if (dateFilter === 'yesterday') {
-    const yesterday = getYesterdayPhilippineDate();
-
-    return {
-      startDate: yesterday,
-      endDate: yesterday,
-    };
+    return getYesterdayPhilippineDate();
   }
 
   if (dateFilter === 'custom' && customDate) {
-    return {
-      startDate: customDate,
-      endDate: customDate,
-    };
+    return customDate;
   }
 
-  return {};
+  return getPhilippineDate();
 }
 
 export function StaffDashboard() {
@@ -83,17 +58,14 @@ export function StaffDashboard() {
   const [readyForReleaseCount, setReadyForReleaseCount] =
     useState(0);
 
-  const [todayCompleted, setTodayCompleted] =
+  const [completedCount, setCompletedCount] =
     useState(0);
 
-  const [releaseTransaction, setReleaseTransaction] =
-    useState<{
-      id: string;
-      studentName: string;
-    } | null>(null);
+  const [releaseTargets, setReleaseTargets] =
+    useState<ReleaseTarget[]>([]);
 
-  const [startProcessingId, setStartProcessingId] =
-    useState<string | null>(null);
+  const [startProcessingIds, setStartProcessingIds] =
+    useState<string[]>([]);
 
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -120,15 +92,21 @@ export function StaffDashboard() {
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const dateRange = getDateRange(
+    const day = getSelectedDay(
       dateFilter,
       customDate
     );
+
+    const dayParams = {
+      startDate: day,
+      endDate: day,
+    };
 
     const searchParams: Record<
       string,
       string | number
     > = {
+      ...dayParams,
       _t: Date.now(),
     };
 
@@ -136,21 +114,19 @@ export function StaffDashboard() {
       searchParams.search = debouncedSearch;
     }
 
-    if (dateRange.startDate) {
-      searchParams.startDate =
-        dateRange.startDate;
-    }
-
-    if (dateRange.endDate) {
-      searchParams.endDate =
-        dateRange.endDate;
-    }
-
     if (statusFilter) {
       searchParams.status = statusFilter;
     }
 
-    const today = getPhilippineDate();
+    const countFor = (status: string) =>
+      api.get('/transactions', {
+        params: {
+          ...dayParams,
+          status,
+          limit: 1,
+          _t: Date.now(),
+        },
+      });
 
     try {
       const [
@@ -158,41 +134,15 @@ export function StaffDashboard() {
         pendingRes,
         processingRes,
         readyRes,
-        releasedTodayRes,
+        releasedRes,
       ] = await Promise.all([
         api.get('/transactions', {
           params: searchParams,
         }),
-
-        api.get('/transactions', {
-          params: {
-            status: 'Pending',
-            _t: Date.now(),
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            status: 'Processing',
-            _t: Date.now(),
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            status: 'Ready for Release',
-            _t: Date.now(),
-          },
-        }),
-
-        api.get('/transactions', {
-          params: {
-            status: 'Released',
-            startDate: today,
-            endDate: today,
-            _t: Date.now(),
-          },
-        }),
+        countFor('Pending'),
+        countFor('Processing'),
+        countFor('Ready for Release'),
+        countFor('Released'),
       ]);
 
       setTransactions(
@@ -211,8 +161,8 @@ export function StaffDashboard() {
         readyRes.data.total
       );
 
-      setTodayCompleted(
-        releasedTodayRes.data.total
+      setCompletedCount(
+        releasedRes.data.total
       );
     } catch (error) {
       console.error(
@@ -242,11 +192,18 @@ export function StaffDashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const isToday = dateFilter === 'today' ||
+    (dateFilter === 'custom' && (!customDate || customDate === getPhilippineDate()));
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">
-        Staff Dashboard
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">
+          Staff Dashboard
+        </h2>
+
+        <ResetTabletButton />
+      </div>
 
       {/* Dashboard Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -308,7 +265,7 @@ export function StaffDashboard() {
           </CardContent>
         </Card>
 
-        {/* Today's Completed */}
+        {/* Completed */}
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -316,11 +273,11 @@ export function StaffDashboard() {
 
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Today's Completed
+                  {isToday ? "Today's Completed" : 'Completed'}
                 </p>
 
                 <p className="text-2xl font-bold">
-                  {todayCompleted}
+                  {completedCount}
                 </p>
               </div>
             </div>
@@ -340,6 +297,44 @@ export function StaffDashboard() {
             </CardTitle>
 
             <div className="flex flex-col md:flex-row gap-3">
+
+              {/* Date Filter */}
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full md:w-auto"
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+
+                  if (e.target.value !== 'custom') {
+                    setCustomDate('');
+                  }
+                }}
+              >
+                <option value="today">
+                  Today
+                </option>
+
+                <option value="yesterday">
+                  Yesterday
+                </option>
+
+                <option value="custom">
+                  Custom Date
+                </option>
+              </select>
+
+              {/* Custom Date */}
+              {dateFilter === 'custom' && (
+                <Input
+                  type="date"
+                  value={customDate}
+                  max={getPhilippineDate()}
+                  onChange={(e) =>
+                    setCustomDate(e.target.value)
+                  }
+                  className="w-full md:w-48"
+                />
+              )}
 
               {/* Status Filter */}
               <select
@@ -370,47 +365,6 @@ export function StaffDashboard() {
                 </option>
               </select>
 
-              {/* Date Filter */}
-              <select
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full md:w-auto"
-                value={dateFilter}
-                onChange={(e) => {
-                  setDateFilter(e.target.value);
-
-                  if (e.target.value !== 'custom') {
-                    setCustomDate('');
-                  }
-                }}
-              >
-                <option value="today">
-                  Today
-                </option>
-
-                <option value="yesterday">
-                  Yesterday
-                </option>
-
-                <option value="custom">
-                  Custom Date
-                </option>
-
-                <option value="all">
-                  All Dates
-                </option>
-              </select>
-
-              {/* Custom Date */}
-              {dateFilter === 'custom' && (
-                <Input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) =>
-                    setCustomDate(e.target.value)
-                  }
-                  className="w-full md:w-48"
-                />
-              )}
-
               {/* Search */}
               <Input
                 className="w-full md:max-w-xs"
@@ -427,15 +381,8 @@ export function StaffDashboard() {
         <CardContent>
           <TransactionTable
             transactions={transactions}
-            onStartProcessing={(id) =>
-              setStartProcessingId(id)
-            }
-            onRelease={(id, studentName) =>
-              setReleaseTransaction({
-                id,
-                studentName,
-              })
-            }
+            onStartProcessing={setStartProcessingIds}
+            onRelease={setReleaseTargets}
             showActions={true}
           />
         </CardContent>
@@ -443,26 +390,17 @@ export function StaffDashboard() {
 
       {/* Release */}
       <ReleaseDialog
-        open={!!releaseTransaction}
-        transactionId={
-          releaseTransaction?.id || null
-        }
-        studentName={
-          releaseTransaction?.studentName || ''
-        }
-        onClose={() =>
-          setReleaseTransaction(null)
-        }
+        open={releaseTargets.length > 0}
+        transactions={releaseTargets}
+        onClose={() => setReleaseTargets([])}
         onReleased={fetchData}
       />
 
       {/* Start Processing */}
       <StartProcessingDialog
-        open={!!startProcessingId}
-        transactionId={startProcessingId}
-        onClose={() =>
-          setStartProcessingId(null)
-        }
+        open={startProcessingIds.length > 0}
+        transactionIds={startProcessingIds}
+        onClose={() => setStartProcessingIds([])}
         onStarted={fetchData}
       />
     </div>
