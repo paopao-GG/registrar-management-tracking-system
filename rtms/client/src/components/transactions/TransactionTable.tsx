@@ -4,11 +4,15 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { TopScrollContainer } from '@/components/ui/top-scroll';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FileSearch, PenLine, PackageCheck, Play, X } from 'lucide-react';
 import {
+  cn,
   formatDate,
   formatDuration,
   formatShortDateTime,
@@ -49,14 +53,14 @@ interface Props {
   userRole?: string;
 }
 
-const statusVariant = (status: string) => {
+export const statusVariant = (status: string) => {
   switch (status) {
     case 'Pending':
       return 'secondary' as const;
     case 'Processing':
       return 'warning' as const;
     case 'Ready for Release':
-      return 'default' as const;
+      return 'info' as const;
     case 'Released':
       return 'success' as const;
     default:
@@ -142,18 +146,26 @@ export function TransactionTable({
 
   if (transactions.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-8 text-center">
-        No transactions found.
-      </p>
+      <EmptyState
+        icon={FileSearch}
+        title="No transactions found"
+        hint="Try a different date range or status filter."
+      />
     );
   }
 
   return (
     <div className="space-y-3">
       {selectable && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
-          <span className="text-sm font-medium">
-            {selected.size} selected
+        <div
+          data-print-hide
+          className="flex flex-wrap items-center gap-2 rounded-md border border-seal/40 bg-seal/10 px-3 py-2 animate-in fade-in-0 slide-in-from-top-1"
+        >
+          <span className="mr-1 flex items-center gap-2 text-sm font-medium">
+            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-seal px-1.5 font-mono text-xs text-seal-foreground">
+              {selected.size}
+            </span>
+            selected
           </span>
 
           {onStartProcessing && pendingSelected.length > 0 && (
@@ -163,6 +175,7 @@ export function TransactionTable({
                 onStartProcessing(pendingSelected.map((t) => t._id))
               }
             >
+              <Play className="h-3.5 w-3.5" />
               Start Processing ({pendingSelected.length})
             </Button>
           )}
@@ -174,6 +187,7 @@ export function TransactionTable({
                 onSign!(processingSelected.map((t) => t._id))
               }
             >
+              <PenLine className="h-3.5 w-3.5" />
               Sign ({processingSelected.length})
             </Button>
           )}
@@ -190,6 +204,7 @@ export function TransactionTable({
                 )
               }
             >
+              <PackageCheck className="h-3.5 w-3.5" />
               Release to One Claimant ({readySelected.length})
             </Button>
           )}
@@ -199,58 +214,59 @@ export function TransactionTable({
             variant="ghost"
             onClick={() => setSelected(new Map())}
           >
+            <X className="h-3.5 w-3.5" />
             Clear
           </Button>
         </div>
       )}
 
       <TopScrollContainer>
-        <table className="w-full text-sm">
+        <table className="data-table w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50">
+            <tr className="border-b bg-muted/60">
               {selectable && (
-                <th className="w-8 px-3 py-2 text-left">
+                <th className="w-8 px-3 py-2.5 text-left">
                   <input
                     type="checkbox"
                     aria-label="Select all transactions"
-                    className="h-4 w-4 align-middle"
+                    className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
                     checked={allSelected}
                     onChange={toggleAll}
                   />
                 </th>
               )}
-              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">
+              <th className="px-3 py-2.5 text-left whitespace-nowrap">
                 Date
               </th>
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Student
               </th>
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Program
               </th>
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Requested Documents/Services
               </th>
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Status
               </th>
               {showActions && (
-                <th className="px-3 py-2 text-left font-medium">
+                <th className="px-3 py-2.5 text-left">
                   Actions
                 </th>
               )}
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Received/Prepared By
               </th>
               {showReviewer && (
-                <th className="px-3 py-2 text-left font-medium">
+                <th className="px-3 py-2.5 text-left">
                   Reviewed/Signed By
                 </th>
               )}
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Duration
               </th>
-              <th className="px-3 py-2 text-left font-medium">
+              <th className="px-3 py-2.5 text-left">
                 Released To
               </th>
             </tr>
@@ -284,25 +300,28 @@ export function TransactionTable({
               return (
                 <tr
                   key={t._id}
-                  className="border-b hover:bg-muted/30"
+                  className={cn(
+                    'border-b border-border/60',
+                    selected.has(t._id) && 'bg-seal/5'
+                  )}
                 >
                   {selectable && (
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
                         aria-label={`Select ${t.studentName}`}
-                        className="h-4 w-4 align-middle"
+                        className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
                         checked={selected.has(t._id)}
                         onChange={() => toggleOne(t)}
                       />
                     </td>
                   )}
 
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">
+                  <td className="tabular px-3 py-2 whitespace-nowrap font-mono text-xs">
                     {formatDate(t.preparedAt)}
                   </td>
 
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 font-medium">
                     {t.studentName}
                   </td>
 
@@ -347,6 +366,7 @@ export function TransactionTable({
                               onSign!([t._id])
                             }
                           >
+                            <PenLine className="h-3.5 w-3.5" />
                             Sign
                           </Button>
                         )}
@@ -408,7 +428,7 @@ export function TransactionTable({
                     </td>
                   )}
 
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="tabular px-3 py-2 whitespace-nowrap font-mono text-xs">
                     {t.duration
                       ? formatDuration(t.duration)
                       : '—'}
@@ -437,6 +457,7 @@ export function TransactionTable({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>E-Signature</DialogTitle>
+            <DialogDescription>Signature captured when the document was released.</DialogDescription>
           </DialogHeader>
 
           {viewSig && (

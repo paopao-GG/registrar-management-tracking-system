@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   SignaturePadComponent,
   type SignaturePadRef,
 } from '@/components/transactions/SignaturePad';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import api from '@/lib/api';
+import { AlertCircle, Check, CheckCircle2, Lock, PenLine, Send, UserX } from 'lucide-react';
 
 interface TabletSession {
   token: string;
@@ -54,6 +59,7 @@ function getDeviceId() {
 
 export function TabletSignPage() {
   const [deviceId] = useState(getDeviceId);
+  const toast = useToast();
   const tablet = { headers: { 'X-Tablet-Device': deviceId } };
 
   const [session, setSession] =
@@ -352,14 +358,14 @@ export function TabletSignPage() {
     const pad = sigRef.current;
 
     if (!pad || pad.isEmpty()) {
-      alert(
+      toast.warning(
         'Please provide your signature.'
       );
       return;
     }
 
     if (!consent) {
-      alert(
+      toast.warning(
         'Please confirm your consent to the capture of your signature.'
       );
       return;
@@ -410,17 +416,9 @@ export function TabletSignPage() {
    */
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold">
-            RTAMS Signature
-          </h1>
-
-          <p className="mt-2 text-muted-foreground">
-            Connecting to RTAMS...
-          </p>
-        </div>
-      </div>
+      <StatusScreen icon={<Spinner size="lg" />} title="RTAMS Signature">
+        <p className="text-muted-foreground">Connecting to RTAMS…</p>
+      </StatusScreen>
     );
   }
 
@@ -429,22 +427,15 @@ export function TabletSignPage() {
    */
   if (availability === 'locked') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-xl text-center space-y-4">
-          <h1 className="text-3xl font-semibold">
-            Tablet Already in Use
-          </h1>
-
-          <p className="text-muted-foreground">
-            The RTAMS signature page is already open on another device.
-          </p>
-
-          <p className="text-sm text-muted-foreground">
-            Close it there, or ask Registrar staff to reset the
-            tablet from their dashboard.
-          </p>
-        </div>
-      </div>
+      <StatusScreen icon={<Lock className="h-8 w-8" />} tone="warning" title="Tablet Already in Use">
+        <p className="text-muted-foreground">
+          The RTAMS signature page is already open on another device.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Close it there, or ask Registrar staff to reset the
+          tablet from their dashboard.
+        </p>
+      </StatusScreen>
     );
   }
 
@@ -453,22 +444,15 @@ export function TabletSignPage() {
    */
   if (availability === 'no_staff') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-xl text-center space-y-4">
-          <h1 className="text-3xl font-semibold">
-            Signing Unavailable
-          </h1>
-
-          <p className="text-muted-foreground">
-            No Registrar staff is currently active.
-          </p>
-
-          <p className="text-sm text-muted-foreground">
-            This page will be available again once a staff
-            member is logged in.
-          </p>
-        </div>
-      </div>
+      <StatusScreen icon={<UserX className="h-8 w-8" />} tone="warning" title="Signing Unavailable">
+        <p className="text-muted-foreground">
+          No Registrar staff is currently active.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          This page will be available again once a staff
+          member is logged in.
+        </p>
+      </StatusScreen>
     );
   }
 
@@ -478,25 +462,14 @@ export function TabletSignPage() {
    */
   if (confirmed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-xl text-center space-y-4">
-          <div className="text-5xl">
-            ✓
-          </div>
-
-          <h1 className="text-3xl font-semibold">
-            Signature Confirmed
-          </h1>
-
-          <p className="text-muted-foreground">
-            Your signature has been successfully recorded.
-          </p>
-
-          <p className="text-sm text-muted-foreground">
-            Please return the tablet to the Registrar staff.
-          </p>
-        </div>
-      </div>
+      <StatusScreen icon={<CheckCircle2 className="h-9 w-9" />} tone="success" title="Signature Confirmed">
+        <p className="text-muted-foreground">
+          Your signature has been successfully recorded.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Please return the tablet to the Registrar staff.
+        </p>
+      </StatusScreen>
     );
   }
 
@@ -505,25 +478,15 @@ export function TabletSignPage() {
    */
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-xl text-center space-y-4">
-          <div className="text-5xl">
-            ✓
-          </div>
-
-          <h1 className="text-3xl font-semibold">
-            Signature Submitted
-          </h1>
-
-          <p className="text-muted-foreground">
-            Your signature has been sent to the Registrar staff.
-          </p>
-
-          <p className="text-sm text-muted-foreground">
-            Please wait for staff confirmation.
-          </p>
-        </div>
-      </div>
+      <StatusScreen icon={<Send className="h-8 w-8" />} tone="success" title="Signature Submitted">
+        <p className="text-muted-foreground">
+          Your signature has been sent to the Registrar staff.
+        </p>
+        <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Spinner size="sm" />
+          Please wait for staff confirmation.
+        </p>
+      </StatusScreen>
     );
   }
 
@@ -532,28 +495,14 @@ export function TabletSignPage() {
    */
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-xl text-center space-y-4">
-          <h1 className="text-3xl font-semibold">
-            RTAMS Signature
-          </h1>
+      <StatusScreen icon={<PenLine className="h-8 w-8" />} title="Ready for Signature">
+        <p className="text-sm text-muted-foreground">
+          Please wait for the Registrar staff to send a
+          document for signing.
+        </p>
 
-          <p className="text-xl font-medium">
-            Ready for Signature
-          </p>
-
-          <p className="text-sm text-muted-foreground">
-            Please wait for the Registrar staff to send a
-            document for signing.
-          </p>
-
-          {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-        </div>
-      </div>
+        {error && <ErrorBox message={error} />}
+      </StatusScreen>
     );
   }
 
@@ -561,25 +510,23 @@ export function TabletSignPage() {
    * Active signing session.
    */
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl space-y-6">
+    <div className="paper-texture flex min-h-screen items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-2xl space-y-6 rounded-xl border border-border/80 bg-card p-5 shadow-lift animate-fade-up sm:p-8">
         <div className="text-center">
-          <h1 className="text-3xl font-semibold">
-            Signature Required
-          </h1>
+          <p className="eyebrow">RTAMS · Signature Required</p>
 
-          <p className="mt-4 text-sm text-muted-foreground">
+          <p className="mt-5 text-sm text-muted-foreground">
             Claimant
           </p>
 
-          <p className="text-2xl font-semibold">
+          <p className="font-display text-3xl font-semibold">
             {session.releasedTo}
           </p>
 
           {session.count > 1 && (
             <div className="mt-3 text-sm text-muted-foreground">
               <p>
-                Claiming {session.count} documents for:
+                Claiming <span className="font-mono font-semibold text-foreground">{session.count}</span> documents for:
               </p>
               <p className="mt-1 max-h-24 overflow-y-auto">
                 {session.studentNames.join('; ')}
@@ -588,27 +535,28 @@ export function TabletSignPage() {
           )}
         </div>
 
-        {error && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+        {error && <ErrorBox message={error} />}
 
         <div className="space-y-3">
           <label className="text-sm font-medium">
             Please sign below
           </label>
 
-          <div className="rounded-lg border bg-background p-2">
+          <div className="rounded-lg border-2 border-dashed border-seal/50 bg-seal/5 p-2">
             {/* Keep the pad without a background color so the saved PNG stays transparent for the BUP logbook. */}
             <SignaturePadComponent ref={sigRef} />
           </div>
         </div>
 
-        <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+        <label
+          className={cn(
+            'flex cursor-pointer items-start gap-3 rounded-md border p-4 text-sm transition-colors',
+            consent ? 'border-success/40 bg-success/5' : 'hover:bg-accent/60'
+          )}
+        >
           <input
             type="checkbox"
-            className="mt-0.5 h-5 w-5 shrink-0"
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-[hsl(var(--primary))]"
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
           />
@@ -621,15 +569,61 @@ export function TabletSignPage() {
           </span>
         </label>
 
-        <button
+        <Button
           type="button"
+          size="lg"
           onClick={handleDone}
           disabled={!consent}
-          className="w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-14 w-full text-base"
         >
+          <Check className="h-5 w-5" />
           Done
-        </button>
+        </Button>
       </div>
+    </div>
+  );
+}
+
+function StatusScreen({
+  icon,
+  title,
+  tone = 'default',
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  tone?: 'default' | 'success' | 'warning';
+  children: ReactNode;
+}) {
+  return (
+    <div className="paper-texture flex min-h-screen items-center justify-center p-6">
+      <div className="w-full max-w-xl space-y-4 text-center animate-fade-up">
+        <div
+          className={cn(
+            'mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full ring-8',
+            tone === 'success' && 'bg-success/10 text-success ring-success/5',
+            tone === 'warning' && 'bg-warning/10 text-warning ring-warning/5',
+            tone === 'default' && 'bg-primary/10 text-primary ring-primary/5'
+          )}
+        >
+          {icon}
+        </div>
+        <p className="eyebrow">RTAMS Signature</p>
+        <h1 className="font-display text-4xl font-semibold">{title}</h1>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ErrorBox({ message }: { message: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 p-3 text-left text-sm text-destructive"
+    >
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      {message}
     </div>
   );
 }

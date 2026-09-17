@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import { DocumentCounter } from './DocumentCounter';
 import { StudentAutocomplete } from '@/components/students/StudentAutocomplete';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
@@ -9,7 +10,7 @@ import { DOCUMENT_TYPES } from '@rtams/shared';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Save } from 'lucide-react';
 
 interface Props {
   onCreated: () => void;
@@ -27,17 +28,18 @@ export function NewRequestForm({ onCreated }: Props) {
   // Remounts the search box so it clears after a save or an alumni entry.
   const [studentFieldKey, setStudentFieldKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) {
-      alert('Please select a student');
+      toast.warning('Please select a student');
       return;
     }
 
     const totalDocs = Object.values(docs).reduce((a, b) => a + b, 0) + othersCount;
     if (totalDocs === 0) {
-      alert('Please select at least one document');
+      toast.warning('Please select at least one document');
       return;
     }
 
@@ -55,9 +57,10 @@ export function NewRequestForm({ onCreated }: Props) {
       setOthers('');
       setOthersCount(0);
       setStudentFieldKey((k) => k + 1);
+      toast.success('Request saved', { description: `${totalDocs} document${totalDocs === 1 ? '' : 's'} queued for processing.` });
       onCreated();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to create request');
+      toast.error(err.response?.data?.error || 'Failed to create request');
     } finally {
       setLoading(false);
     }
@@ -67,7 +70,9 @@ export function NewRequestForm({ onCreated }: Props) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">New Request</CardTitle>
+          <p className="eyebrow">Intake</p>
+          <CardTitle>New Request</CardTitle>
+          <CardDescription>Log a student's document request at the counter.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,7 +96,7 @@ export function NewRequestForm({ onCreated }: Props) {
                   size="sm"
                   onClick={() => setAlumniOpen(true)}
                 >
-                  <GraduationCap className="h-4 w-4 mr-2" />
+                  <GraduationCap className="h-4 w-4" />
                   Alumni
                 </Button>
               </div>
@@ -154,8 +159,9 @@ export function NewRequestForm({ onCreated }: Props) {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Request'}
+            <Button type="submit" size="lg" className="w-full" loading={loading}>
+              {!loading && <Save className="h-4 w-4" />}
+              {loading ? 'Saving…' : 'Save Request'}
             </Button>
           </form>
         </CardContent>

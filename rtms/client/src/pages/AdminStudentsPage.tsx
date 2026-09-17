@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { NativeSelect } from '@/components/ui/select';
+import { TableSkeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Spinner } from '@/components/ui/spinner';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { TopScrollContainer } from '@/components/ui/top-scroll';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
 import { BulkImportDialog } from '@/components/students/BulkImportDialog';
-import { Plus, Upload, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Plus, Search, Trash2, Upload } from 'lucide-react';
 import { COURSE_ALIASES, abbreviateCourse, formatYearLevel } from '@rtams/shared';
 import api from '@/lib/api';
 
@@ -36,6 +43,9 @@ export function AdminStudentsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -69,19 +79,26 @@ export function AdminStudentsPage() {
   }, [fetchStudents]);
 
   const handleRemove = async (student: Student) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to remove ${student.name}?`
-    );
+    const confirmed = await confirm({
+      title: `Remove ${student.name}?`,
+      description: `Student #${student.studentNumber} will be removed from the directory.`,
+      confirmText: 'Remove student',
+      tone: 'destructive',
+    });
 
     if (!confirmed) return;
 
+    setRemovingId(student._id);
     try {
       await api.delete(`/students/${student._id}`);
+      toast.success('Student removed', { description: student.name });
       await fetchStudents();
     } catch (error: any) {
       const message =
         error?.response?.data?.error ?? 'Failed to remove student.';
-      window.alert(message);
+      toast.error(message);
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -89,33 +106,38 @@ export function AdminStudentsPage() {
   const filtered = !!debouncedSearch || !!program;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Students</h2>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Student
-          </Button>
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import CSV/XLSX
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter space-y-6">
+      <PageHeader
+        eyebrow="Directory"
+        title="Students"
+        description="The enrolled-student roster used when logging requests."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Student
+            </Button>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import CSV/XLSX
+            </Button>
+          </>
+        }
+      />
 
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-lg">Enrolled Students</CardTitle>
-              <Badge variant="secondary">
+              <CardTitle>Enrolled Students</CardTitle>
+              <Badge variant="secondary" className="tabular font-mono">
                 {filtered ? `${total} matching` : `Total: ${total} students`}
               </Badge>
+              {loading && students.length > 0 && <Spinner size="sm" className="text-muted-foreground" />}
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm w-full sm:w-44"
+            <div data-print-hide className="flex flex-col gap-2 sm:flex-row">
+              <NativeSelect
+                className="sm:w-44"
                 value={program}
                 onChange={(e) => setProgram(e.target.value)}
                 aria-label="Filter by program"
@@ -124,62 +146,77 @@ export function AdminStudentsPage() {
                 {PROGRAMS.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
-              </select>
-              <Input
-                className="w-full sm:w-72"
-                placeholder="Search by name or student number…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              </NativeSelect>
+              <div className="relative w-full sm:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  aria-label="Search students"
+                  className="pl-9"
+                  placeholder="Search by name or student number…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {loading && students.length === 0 && (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          )}
+          {loading && students.length === 0 && <TableSkeleton cols={6} />}
           {!loading && students.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              {filtered ? 'No students match your filters.' : 'No students yet — import a roster to get started.'}
-            </p>
+            <EmptyState
+              icon={filtered ? Search : GraduationCap}
+              title={filtered ? 'No students match your filters' : 'No students yet'}
+              hint={filtered ? 'Try a different name, number, or program.' : 'Import a roster to get started.'}
+              action={
+                !filtered && (
+                  <Button size="sm" onClick={() => setImportOpen(true)}>
+                    <Upload className="h-4 w-4" />
+                    Import roster
+                  </Button>
+                )
+              }
+            />
           )}
           {students.length > 0 && (
             <>
               <TopScrollContainer>
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                   <thead className="border-b">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="px-2 py-2 font-medium whitespace-nowrap">Student #</th>
-                      <th className="px-2 py-2 font-medium">Name</th>
-                      <th className="px-2 py-2 font-medium">Program</th>
-                      <th className="px-2 py-2 font-medium">Year</th>
-                      <th className="px-2 py-2 font-medium whitespace-nowrap">BU Email</th>
-                      <th className="px-2 py-2 font-medium whitespace-nowrap">Contact Number</th>
-                      <th className="px-2 py-2 font-medium">Action</th>
+                    <tr className="bg-muted/60 text-left">
+                      <th className="px-3 py-2.5 whitespace-nowrap">Student #</th>
+                      <th className="px-3 py-2.5">Name</th>
+                      <th className="px-3 py-2.5">Program</th>
+                      <th className="px-3 py-2.5">Year</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">BU Email</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">Contact Number</th>
+                      <th className="px-3 py-2.5" data-print-hide>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {students.map((s) => (
-                      <tr key={s._id} className="border-b last:border-0">
-                        <td className="px-2 py-2 font-mono text-xs whitespace-nowrap">{s.studentNumber}</td>
-                        <td className="px-2 py-2">{s.name}</td>
-                        <td className="px-2 py-2 whitespace-nowrap" title={s.course}>
+                      <tr key={s._id} className="border-b border-border/60 last:border-0">
+                        <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{s.studentNumber}</td>
+                        <td className="px-3 py-2.5 font-medium">{s.name}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap" title={s.course}>
                           {abbreviateCourse(s.course)}
                         </td>
-                        <td className="px-2 py-2">{formatYearLevel(s.yearLevel)}</td>
-                        <td className="px-2 py-2 text-muted-foreground">
+                        <td className="px-3 py-2.5">{formatYearLevel(s.yearLevel)}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground">
                           {s.email ?? '—'}
                         </td>
-                        <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
                           {s.contactNumber ?? '—'}
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-3 py-2.5" data-print-hide>
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
+                            className="text-destructive hover:border-destructive/40 hover:bg-destructive hover:text-destructive-foreground"
+                            loading={removingId === s._id}
                             onClick={() => handleRemove(s)}
                           >
-                            <Trash2 className="h-4 w-4 mr-1" />
+                            {removingId !== s._id && <Trash2 className="h-3.5 w-3.5" />}
                             Remove
                           </Button>
                         </td>
@@ -190,8 +227,8 @@ export function AdminStudentsPage() {
               </TopScrollContainer>
 
               {pageCount > 1 && (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground">
+                <div data-print-hide className="flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-sm">
+                  <span className="tabular font-mono text-xs text-muted-foreground">
                     Page {page} of {pageCount}
                   </span>
                   <div className="flex gap-2">
@@ -201,6 +238,7 @@ export function AdminStudentsPage() {
                       disabled={page <= 1 || loading}
                       onClick={() => setPage((p) => p - 1)}
                     >
+                      <ChevronLeft className="h-4 w-4" />
                       Previous
                     </Button>
                     <Button
@@ -210,6 +248,7 @@ export function AdminStudentsPage() {
                       onClick={() => setPage((p) => p + 1)}
                     >
                       Next
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

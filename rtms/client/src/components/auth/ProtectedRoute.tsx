@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { PageLoader } from '@/components/ui/page-loader';
 
 interface Props {
   children: React.ReactNode;
@@ -10,7 +11,7 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+    return <PageLoader />;
   }
 
   if (!user) {

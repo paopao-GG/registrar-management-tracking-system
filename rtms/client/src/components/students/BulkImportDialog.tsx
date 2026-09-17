@@ -1,7 +1,10 @@
 import { useState, useRef, type ChangeEvent } from 'react';
 import Papa from 'papaparse';
 import readXlsxFile from 'read-excel-file';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { inputClasses } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { AlertTriangle, Download, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 import {
@@ -352,11 +355,15 @@ export function BulkImportDialog({
             <DialogTitle>
               Update Student Directory
             </DialogTitle>
+            <DialogDescription>
+              Replace the roster with the Registrar's latest export.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
-              <p className="font-medium">
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm">
+              <p className="flex items-center gap-2 font-medium text-warning">
+                <AlertTriangle className="h-4 w-4" />
                 Full-directory update
               </p>
 
@@ -368,7 +375,7 @@ export function BulkImportDialog({
               </p>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <p className="text-muted-foreground">
                 Upload a <code>.csv</code> or{' '}
                 <code>.xlsx</code> file. Max{' '}
@@ -381,6 +388,7 @@ export function BulkImportDialog({
                 size="sm"
                 onClick={downloadTemplate}
               >
+                <Download className="h-3.5 w-3.5" />
                 Download template
               </Button>
             </div>
@@ -390,42 +398,47 @@ export function BulkImportDialog({
               type="file"
               accept=".csv,.xlsx"
               onChange={handleFile}
-              className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-primary-foreground hover:file:bg-primary/90"
+              className={cn(
+                inputClasses,
+                'h-auto cursor-pointer border-dashed py-2 file:mr-4 file:cursor-pointer file:rounded-md file:bg-primary file:px-4 file:py-1.5 file:text-primary-foreground file:transition-colors hover:file:bg-primary/90'
+              )}
             />
 
             {fileName && !parseError && (
-              <p className="text-sm text-muted-foreground">
-                {fileName}: {rows.length} rows parsed.
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileSpreadsheet className="h-4 w-4 text-success" />
+                <span className="font-medium text-foreground">{fileName}</span>
+                <span className="tabular font-mono text-xs">{rows.length} rows parsed</span>
               </p>
             )}
 
             {parseError && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <div role="alert" className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
                 {parseError}
               </div>
             )}
 
             {!result && previewRows.length > 0 && (
-              <div className="rounded-md border overflow-x-auto max-h-64">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted">
+              <div className="max-h-64 overflow-x-auto rounded-md border">
+                <table className="data-table w-full text-xs">
+                  <thead className="sticky top-0 bg-muted">
                     <tr>
-                      <th className="px-2 py-1 text-left">
+                      <th className="px-2 py-1.5 text-left">
                         #
                       </th>
-                      <th className="px-2 py-1 text-left">
+                      <th className="px-2 py-1.5 text-left">
                         Student #
                       </th>
-                      <th className="px-2 py-1 text-left">
+                      <th className="px-2 py-1.5 text-left">
                         Last
                       </th>
-                      <th className="px-2 py-1 text-left">
+                      <th className="px-2 py-1.5 text-left">
                         First
                       </th>
-                      <th className="px-2 py-1 text-left">
+                      <th className="px-2 py-1.5 text-left">
                         Program
                       </th>
-                      <th className="px-2 py-1 text-left">
+                      <th className="px-2 py-1.5 text-left">
                         Year
                       </th>
                     </tr>
@@ -437,7 +450,7 @@ export function BulkImportDialog({
                         key={i}
                         className="border-t"
                       >
-                        <td className="px-2 py-1">
+                        <td className="px-2 py-1 font-mono text-muted-foreground">
                           {i + 2}
                         </td>
 
@@ -475,21 +488,21 @@ export function BulkImportDialog({
             )}
 
             {result && (
-              <div className="space-y-2 rounded-md border p-3 text-sm">
+              <div className="space-y-2 rounded-md border border-success/30 bg-success/5 p-3 text-sm animate-in fade-in-0">
                 <p>
-                  <span className="font-medium text-green-600">
+                  <span className="tabular font-mono font-semibold text-success">
                     {result.created}
                   </span>{' '}
                   created,{' '}
-                  <span className="font-medium text-blue-600">
+                  <span className="tabular font-mono font-semibold text-info">
                     {result.updated}
                   </span>{' '}
                   updated,{' '}
-                  <span className="font-medium text-purple-600">
+                  <span className="tabular font-mono font-semibold text-primary">
                     {result.reactivated}
                   </span>{' '}
                   reactivated,{' '}
-                  <span className="font-medium text-amber-600">
+                  <span className="tabular font-mono font-semibold text-warning">
                     {result.deactivated}
                   </span>{' '}
                   inactive.
@@ -526,6 +539,12 @@ export function BulkImportDialog({
               </div>
             )}
 
+            {submitting && (
+              <div role="progressbar" aria-label="Updating directory" className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full w-full origin-left animate-progress-indeterminate bg-seal" />
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
@@ -539,10 +558,10 @@ export function BulkImportDialog({
                 <Button
                   type="button"
                   onClick={handleImportClick}
+                  loading={submitting}
                   disabled={
                     rows.length === 0 ||
-                    !!parseError ||
-                    submitting
+                    !!parseError
                   }
                 >
                   {submitting
@@ -565,11 +584,14 @@ export function BulkImportDialog({
             <DialogTitle>
               Confirm Student Directory Update
             </DialogTitle>
+            <DialogDescription>
+              This affects every student in the directory.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-4 text-sm">
-              <p className="font-medium">
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm">
+              <p className="font-medium text-warning">
                 Please make sure this is the complete
                 latest directory.
               </p>
@@ -607,7 +629,7 @@ export function BulkImportDialog({
               ?
             </p>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -620,7 +642,7 @@ export function BulkImportDialog({
               <Button
                 type="button"
                 onClick={handleConfirmImport}
-                disabled={submitting}
+                loading={submitting}
               >
                 {submitting
                   ? 'Updating…'

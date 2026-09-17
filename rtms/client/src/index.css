@@ -2,46 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
+/* "Registrar's ledger" — ink-navy on warm paper, with an ochre seal accent. */
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 215 20% 95%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 215 20% 95%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 215 20% 95%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 215 20% 88%;
-    --input: 215 20% 88%;
-    --ring: 221 83% 53%;
+    --background: 40 30% 97%;
+    --foreground: 222 45% 12%;
+    --card: 40 40% 99.5%;
+    --card-foreground: 222 45% 12%;
+    --primary: 222 60% 24%;
+    --primary-foreground: 40 40% 98%;
+    --secondary: 38 22% 92%;
+    --secondary-foreground: 222 45% 16%;
+    --muted: 38 20% 93%;
+    --muted-foreground: 220 12% 42%;
+    --accent: 38 28% 91%;
+    --accent-foreground: 222 45% 14%;
+    --destructive: 2 68% 46%;
+    --destructive-foreground: 40 40% 98%;
+    --success: 152 55% 30%;
+    --success-foreground: 40 40% 98%;
+    --warning: 34 90% 42%;
+    --warning-foreground: 40 40% 98%;
+    --info: 208 70% 40%;
+    --info-foreground: 40 40% 98%;
+    --seal: 38 80% 48%;
+    --seal-foreground: 222 45% 10%;
+    --border: 36 18% 84%;
+    --input: 36 16% 80%;
+    --ring: 38 80% 48%;
+    --shadow: 222 40% 20%;
     --radius: 0.5rem;
+    color-scheme: light;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 20% 98%;
-    --card: 223 47% 14%;
-    --card-foreground: 210 20% 98%;
-    --primary: 221 83% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 223 47% 18%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 223 47% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 223 47% 18%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 63% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 223 30% 22%;
-    --input: 223 30% 22%;
-    --ring: 221 83% 60%;
+    --background: 222 35% 9%;
+    --foreground: 40 25% 92%;
+    --card: 222 30% 12%;
+    --card-foreground: 40 25% 92%;
+    --primary: 214 70% 72%;
+    --primary-foreground: 222 45% 10%;
+    --secondary: 222 24% 18%;
+    --secondary-foreground: 40 25% 92%;
+    --muted: 222 24% 16%;
+    --muted-foreground: 220 12% 64%;
+    --accent: 222 24% 19%;
+    --accent-foreground: 40 25% 94%;
+    --destructive: 2 70% 58%;
+    --destructive-foreground: 222 45% 8%;
+    --success: 152 45% 52%;
+    --success-foreground: 222 45% 8%;
+    --warning: 38 85% 58%;
+    --warning-foreground: 222 45% 8%;
+    --info: 208 75% 66%;
+    --info-foreground: 222 45% 8%;
+    --seal: 40 85% 60%;
+    --seal-foreground: 222 45% 8%;
+    --border: 222 20% 22%;
+    --input: 222 20% 26%;
+    --ring: 40 85% 60%;
+    --shadow: 222 60% 2%;
+    color-scheme: dark;
   }
 }
 
@@ -49,14 +70,75 @@
   * {
     @apply border-border;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
+    @apply bg-background font-sans text-foreground;
     margin: 0;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: hsl(var(--seal) / 0.3);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Faint ruled-paper texture for app surfaces. */
+  .paper-texture {
+    background-image:
+      radial-gradient(hsl(var(--foreground) / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), hsl(var(--border) / 0.35) 100%);
+    background-size: 3px 3px, 100% 32px;
+  }
+
+  /* Small uppercase label above page titles. */
+  .eyebrow {
+    @apply font-mono text-[0.68rem] font-medium uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  /* Staggered entrance for a page's direct children. */
+  .page-enter > * {
+    @apply animate-fade-up;
+  }
+  .page-enter > *:nth-child(2) { animation-delay: 60ms; }
+  .page-enter > *:nth-child(3) { animation-delay: 120ms; }
+  .page-enter > *:nth-child(4) { animation-delay: 180ms; }
+  .page-enter > *:nth-child(5) { animation-delay: 240ms; }
+  .page-enter > *:nth-child(n + 6) { animation-delay: 300ms; }
+
+  /* Shared styles for the raw <table> elements used across pages. */
+  .data-table thead th {
+    @apply font-mono text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
+  }
+  .data-table tbody tr {
+    @apply transition-colors hover:bg-accent/60;
   }
 }
 
 @layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Hides a native scrollbar while keeping the element scrollable. */
   .no-scrollbar {
     scrollbar-width: none;
@@ -64,5 +146,120 @@
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .print-only {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  :root,
+  .dark {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 30%;
+    --border: 0 0% 75%;
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  [data-print-hide],
+  button,
+  [role='dialog'],
+  [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Undo the app shell's fixed-height scroll container. */
+  [data-app-shell],
+  [data-app-main],
+  [data-top-scroll],
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-hidden {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  [data-app-main] > div {
+    padding: 0 !important;
+  }
+
+  [data-card] {
+    border: 0 !important;
+  }
+  [data-card] > * {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr,
+  img,
+  svg {
+    break-inside: avoid;
+  }
+  th,
+  td {
+    border-bottom: 1px solid #bbb !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 8pt;
+    color: #444;
   }
 }

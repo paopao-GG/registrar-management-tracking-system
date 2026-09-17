@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import api from '@/lib/api';
 import { TabletSmartphone } from 'lucide-react';
 
@@ -9,11 +11,17 @@ import { TabletSmartphone } from 'lucide-react';
  */
 export function ResetTabletButton() {
   const [loading, setLoading] = useState(false);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const handleReset = async () => {
-    const confirmed = window.confirm(
-      'Reset the signing tablet? The sign page will need to be reopened on the device that should be used for signing.'
-    );
+    const confirmed = await confirm({
+      title: 'Reset the signing tablet?',
+      description:
+        'The sign page will need to be reopened on the device that should be used for signing.',
+      confirmText: 'Reset tablet',
+      tone: 'destructive',
+    });
 
     if (!confirmed) return;
 
@@ -21,9 +29,9 @@ export function ResetTabletButton() {
 
     try {
       await api.delete('/signing/tablet/lock');
-      alert('Tablet reset. Open the sign page on the signing device.');
+      toast.success('Tablet reset', { description: 'Open the sign page on the signing device.' });
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to reset the tablet.');
+      toast.error(err.response?.data?.error || 'Failed to reset the tablet.');
     } finally {
       setLoading(false);
     }
@@ -34,9 +42,9 @@ export function ResetTabletButton() {
       variant="outline"
       size="sm"
       onClick={handleReset}
-      disabled={loading}
+      loading={loading}
     >
-      <TabletSmartphone className="h-4 w-4 mr-2" />
+      {!loading && <TabletSmartphone className="h-4 w-4" />}
       {loading ? 'Resetting...' : 'Reset Tablet'}
     </Button>
   );

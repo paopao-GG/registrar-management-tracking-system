@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import '@fontsource/dm-sans/400.css'
-import '@fontsource/dm-sans/500.css'
-import '@fontsource/dm-sans/700.css'
+import '@fontsource-variable/public-sans'
+import '@fontsource-variable/fraunces/opsz.css'
+import '@fontsource-variable/jetbrains-mono'
 import './index.css'
 import App from './App.tsx'
 

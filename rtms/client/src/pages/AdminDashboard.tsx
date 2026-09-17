@@ -1,22 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
+import { format, parseISO } from 'date-fns';
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { NativeSelect } from '@/components/ui/select';
+import { TableSkeleton } from '@/components/ui/skeleton';
+import { LiveIndicator, StatTiles } from '@/components/dashboard/StatTiles';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
 import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { Input } from '@/components/ui/input';
 import { getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
-import {
-  FileText,
-  Loader,
-  Clock,
-  CheckCircle,
-} from 'lucide-react';
 
 export function AdminDashboard() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -31,6 +31,7 @@ export function AdminDashboard() {
   const [dateFilter, setDateFilter] = useState(getPhilippineDate);
   const [statusFilter, setStatusFilter] = useState('');
   const [signIds, setSignIds] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   // The dashboard always shows one day; an empty picker means today.
   const day = dateFilter || getPhilippineDate();
@@ -89,6 +90,8 @@ export function AdminDashboard() {
         'Failed to refresh admin dashboard:',
         error
       );
+    } finally {
+      setLoaded(true);
     }
   }, [statusFilter, day]);
 
@@ -107,153 +110,65 @@ export function AdminDashboard() {
   }, [fetchData]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-2xl font-bold tracking-tight">
-          Admin Dashboard
-        </h2>
+    <div className="page-enter space-y-6">
+      <PageHeader
+        eyebrow={format(parseISO(day), 'EEEE, MMMM d, yyyy')}
+        title="Admin Dashboard"
+        description="Review, sign, and monitor the registrar's requests for the day."
+        actions={<ResetTabletButton />}
+      />
 
-        <ResetTabletButton />
-      </div>
-
-      {/* Dashboard Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-        {/* New Requests */}
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <FileText className="h-8 w-8 text-blue-500" />
-
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                New Requests
-              </CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.newRequests}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Processing */}
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <Loader className="h-8 w-8 text-blue-500" />
-
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Processing
-              </CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {stats.processing}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ready for Release */}
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <Clock className="h-8 w-8 text-blue-500" />
-
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Ready for Release
-              </CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {stats.readyForRelease}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Completed */}
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {isToday ? "Today's Completed" : 'Completed'}
-              </CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {stats.completed}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StatTiles {...stats} isToday={isToday} loading={!loaded} />
 
       {/* Requests */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            {isToday ? "Today's Requests" : 'Requests'}
-          </CardTitle>
+        <CardHeader className="gap-4 space-y-0 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CardTitle>{isToday ? "Today's Requests" : 'Requests'}</CardTitle>
+              <LiveIndicator />
+            </div>
+            <CardDescription>
+              {loaded ? `${transactions.length} shown` : 'Loading requests…'}
+            </CardDescription>
+          </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 mt-2">
-
-            {/* Date Filter */}
+          <div data-print-hide className="flex flex-col gap-3 sm:flex-row">
             <Input
               type="date"
+              aria-label="Date"
               value={day}
               max={getPhilippineDate()}
-              onChange={(e) =>
-                setDateFilter(e.target.value)
-              }
-              className="w-full sm:w-48"
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full sm:w-44"
             />
 
-            {/* Status Filter */}
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm w-full sm:w-auto"
+            <NativeSelect
+              aria-label="Status"
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value)
-              }
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="sm:w-48"
             >
-              <option value="">
-                All Statuses
-              </option>
-
-              <option value="Pending">
-                Pending
-              </option>
-
-              <option value="Processing">
-                Processing
-              </option>
-
-              <option value="Ready for Release">
-                Ready for Release
-              </option>
-
-              <option value="Released">
-                Released
-              </option>
-            </select>
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Processing">Processing</option>
+              <option value="Ready for Release">Ready for Release</option>
+              <option value="Released">Released</option>
+            </NativeSelect>
           </div>
         </CardHeader>
 
-        <CardContent>
-          <TransactionTable
-            transactions={transactions}
-            onSign={setSignIds}
-            userRole="admin"
-            showActions={true}
-          />
+        <CardContent className="px-0 pb-2 sm:px-6 sm:pb-6">
+          {loaded ? (
+            <TransactionTable
+              transactions={transactions}
+              onSign={setSignIds}
+              userRole="admin"
+              showActions={true}
+            />
+          ) : (
+            <TableSkeleton cols={7} />
+          )}
         </CardContent>
       </Card>
 

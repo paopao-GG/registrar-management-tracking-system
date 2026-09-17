@@ -15,7 +15,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // A failed login is also a 401; let the login form show the error instead of reloading.
+    const isLoginAttempt = error.config?.url === '/auth/login';
+    if (error.response?.status === 401 && !isLoginAttempt) {
       localStorage.removeItem('rtams_token');
       localStorage.removeItem('rtams_user');
       window.location.href = '/login';

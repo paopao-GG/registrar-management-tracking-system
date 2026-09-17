@@ -43,7 +43,7 @@ export function TopScrollContainer({ children, className }: Props) {
   };
 
   return (
-    <div className={className}>
+    <div data-top-scroll className={className}>
       <div
         ref={topRef}
         className={cn('overflow-x-auto overflow-y-hidden', !overflowing && 'hidden')}
@@ -54,6 +54,7 @@ export function TopScrollContainer({ children, className }: Props) {
 
       <div
         ref={contentRef}
+        data-top-scroll
         className="overflow-x-auto no-scrollbar"
         onScroll={() => sync(contentRef.current, topRef.current)}
       >

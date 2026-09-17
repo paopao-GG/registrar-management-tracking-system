@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 
@@ -12,6 +20,7 @@ interface Props {
 
 export function SignDialog({ open, transactionIds, onClose, onSigned }: Props) {
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
   const count = transactionIds.length;
 
   const handleSign = async () => {
@@ -22,7 +31,7 @@ export function SignDialog({ open, transactionIds, onClose, onSigned }: Props) {
       onSigned();
       onClose();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to sign');
+      toast.error(err.response?.data?.error || 'Failed to sign');
     } finally {
       setLoading(false);
     }
@@ -33,18 +42,18 @@ export function SignDialog({ open, transactionIds, onClose, onSigned }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Sign Document{count > 1 ? 's' : ''}</DialogTitle>
+          <DialogDescription>
+            {count > 1
+              ? `Are you sure you want to mark these ${count} documents as reviewed and signed?`
+              : 'Are you sure you want to mark this document as reviewed and signed?'}
+          </DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          {count > 1
-            ? `Are you sure you want to mark these ${count} documents as reviewed and signed?`
-            : 'Are you sure you want to mark this document as reviewed and signed?'}
-        </p>
-        <div className="flex gap-2 justify-end">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSign} disabled={loading}>
+          <Button onClick={handleSign} loading={loading}>
             {loading ? 'Signing...' : count > 1 ? `Confirm Sign (${count})` : 'Confirm Sign'}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

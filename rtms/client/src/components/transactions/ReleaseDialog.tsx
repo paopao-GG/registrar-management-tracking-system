@@ -2,11 +2,15 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { useToast } from '@/components/ui/toast';
+import { CheckCircle2, PackageCheck, TabletSmartphone } from 'lucide-react';
 import api from '@/lib/api';
 import type { ReleaseTarget } from './TransactionTable';
 
@@ -45,6 +49,7 @@ export function ReleaseDialog({
   >(null);
 
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const transactionIds = transactions.map((t) => t.id);
   const transactionKey = transactionIds.join(',');
@@ -127,7 +132,7 @@ export function ReleaseDialog({
           setSignature(null);
           setLiveSignature(null);
 
-          alert(
+          toast.info(
             'The tablet signing session has ended.'
           );
         }
@@ -163,7 +168,7 @@ export function ReleaseDialog({
     if (count === 0) return;
 
     if (!releasedTo.trim()) {
-      alert('Please enter the claimant name');
+      toast.warning('Please enter the claimant name');
       return;
     }
 
@@ -186,7 +191,7 @@ export function ReleaseDialog({
     } catch (err: any) {
       setSendingToTablet(false);
 
-      alert(
+      toast.error(
         err.response?.data?.error ||
           'Failed to send the document to the tablet.'
       );
@@ -202,12 +207,12 @@ export function ReleaseDialog({
     if (count === 0) return;
 
     if (!releasedTo.trim()) {
-      alert('Please enter the claimant name');
+      toast.warning('Please enter the claimant name');
       return;
     }
 
     if (!signatureReceived || !signature) {
-      alert(
+      toast.warning(
         'Please have the claimant sign on the tablet first.'
       );
       return;
@@ -243,10 +248,14 @@ export function ReleaseDialog({
       setSignature(null);
       setLiveSignature(null);
 
+      toast.success(
+        count > 1 ? `${count} documents released` : 'Document released',
+        { description: `Claimed by ${releasedTo.trim()}.` }
+      );
       onReleased();
       onClose();
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.error ||
           'Failed to release'
       );
@@ -329,6 +338,9 @@ export function ReleaseDialog({
               ? `Release ${count} Documents`
               : 'Release Document'}
           </DialogTitle>
+          <DialogDescription>
+            Confirm who is claiming, then capture their signature on the tablet.
+          </DialogDescription>
         </DialogHeader>
 
         {count > 1 && (
@@ -388,7 +400,7 @@ export function ReleaseDialog({
               />
 
               {suggestions.length > 0 && (
-                <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+                <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-card py-1 shadow-float animate-in fade-in-0 slide-in-from-top-1">
                   {suggestions.map((name) => (
                     <button
                       key={name}
@@ -422,11 +434,10 @@ export function ReleaseDialog({
                   onClick={
                     handleSendToTablet
                   }
-                  disabled={
-                    sendingToTablet ||
-                    !releasedTo.trim()
-                  }
+                  loading={sendingToTablet}
+                  disabled={!releasedTo.trim()}
                 >
+                  {!sendingToTablet && <TabletSmartphone className="h-4 w-4" />}
                   {sendingToTablet
                     ? 'Sending to Tablet...'
                     : 'Sign on Tablet'}
@@ -435,9 +446,13 @@ export function ReleaseDialog({
 
             {sessionId &&
               !signatureReceived && (
-                <div className="space-y-3 rounded-md border p-4">
+                <div className="space-y-3 rounded-md border border-seal/40 bg-seal/5 p-4">
                   <div className="text-center">
-                    <p className="font-medium">
+                    <p className="flex items-center justify-center gap-2 font-medium">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-seal opacity-75" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-seal" />
+                      </span>
                       Waiting for Signature
                     </p>
 
@@ -448,7 +463,7 @@ export function ReleaseDialog({
                   </div>
 
                   {/* LIVE SIGNATURE PREVIEW */}
-                  <div className="rounded-md border bg-background p-2">
+                  <div className="rounded-md border bg-white p-2">
                     {liveSignature ? (
                       <img
                         src={liveSignature}
@@ -456,7 +471,8 @@ export function ReleaseDialog({
                         className="h-40 w-full object-contain"
                       />
                     ) : (
-                      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                      <div className="flex h-40 flex-col items-center justify-center gap-2 text-sm text-slate-500">
+                        <Spinner size="md" />
                         Waiting for the claimant to
                         start signing...
                       </div>
@@ -484,13 +500,14 @@ export function ReleaseDialog({
               )}
 
             {signatureReceived && (
-              <div className="space-y-3 rounded-md border p-4">
-                <p className="text-center font-medium">
+              <div className="space-y-3 rounded-md border border-success/30 bg-success/5 p-4 animate-in fade-in-0 zoom-in-95">
+                <p className="flex items-center justify-center gap-2 font-medium text-success">
+                  <CheckCircle2 className="h-4 w-4" />
                   Signature Received
                 </p>
 
                 {signature && (
-                  <div className="rounded-md border bg-background p-2">
+                  <div className="rounded-md border bg-white p-2">
                     <img
                       src={signature}
                       alt="Claimant signature"
@@ -509,13 +526,16 @@ export function ReleaseDialog({
           {/* CONFIRM RELEASE */}
           <Button
             type="submit"
+            variant="success"
+            size="lg"
             className="w-full"
+            loading={loading}
             disabled={
-              loading ||
               !signatureReceived ||
               !signature
             }
           >
+            {!loading && <PackageCheck className="h-4 w-4" />}
             {loading
               ? 'Releasing...'
               : count > 1

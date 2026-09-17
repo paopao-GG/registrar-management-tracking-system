@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { NativeSelect } from '@/components/ui/select';
+import { useToast } from '@/components/ui/toast';
+import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
@@ -11,9 +14,6 @@ interface Props {
   onClose: () => void;
   onCreated: (student: any) => void;
 }
-
-const selectClass =
-  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm';
 
 export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }: Props) {
   const isAlumni = mode === 'alumni';
@@ -29,6 +29,7 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
   const [yearLevel, setYearLevel] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const reset = () => {
     setLastName('');
@@ -61,6 +62,7 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
       if (contactNumber.trim()) payload.contactNumber = contactNumber.trim();
       const { data } = await api.post('/students', payload);
       onCreated(data);
+      toast.success(isAlumni ? 'Alumni added' : 'Student added', { description: `${firstName} ${lastName}` });
       reset();
       onClose();
     } catch (err: any) {
@@ -75,9 +77,14 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isAlumni ? 'Add Alumni Request' : 'Add New Student'}</DialogTitle>
+          <DialogDescription>
+            {isAlumni
+              ? 'Record a graduate who is requesting documents.'
+              : 'Add a student who is not yet in the imported roster.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Last Name</label>
               <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
@@ -86,67 +93,66 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
               <label className="text-sm font-medium">First Name</label>
               <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
             </div>
-            <div className="space-y-2 col-span-2">
-              <label className="text-sm font-medium">Middle Name <span className="text-muted-foreground">(optional)</span></label>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-medium">Middle Name <span className="font-normal text-muted-foreground">(optional)</span></label>
               <Input value={middleName} onChange={(e) => setMiddleName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Student Number <span className="text-muted-foreground">(optional)</span></label>
+              <label className="text-sm font-medium">Student Number <span className="font-normal text-muted-foreground">(optional)</span></label>
               <Input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} placeholder="e.g. 2023-0000-00001" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">BU Email <span className="text-muted-foreground">(optional)</span></label>
+              <label className="text-sm font-medium">BU Email <span className="font-normal text-muted-foreground">(optional)</span></label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sex <span className="text-muted-foreground">(optional)</span></label>
-              <select className={selectClass} value={sex} onChange={(e) => setSex(e.target.value)}>
+              <label className="text-sm font-medium">Sex <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <NativeSelect value={sex} onChange={(e) => setSex(e.target.value)}>
                 <option value="">—</option>
                 <option value="M">M</option>
                 <option value="F">F</option>
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Contact Number <span className="text-muted-foreground">(optional)</span></label>
+              <label className="text-sm font-medium">Contact Number <span className="font-normal text-muted-foreground">(optional)</span></label>
               <Input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="e.g. 09171234567" />
             </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Program</label>
-            <select
-              className={selectClass}
+            <NativeSelect
               value={course}
               onChange={(e) => setCourse(e.target.value)}
             >
               {COURSES.map((c: string) => (
                 <option key={c} value={c}>{abbreviateCourse(c)} — {c}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           {!isAlumni && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Year Level</label>
-              <select
-                className={selectClass}
+              <NativeSelect
                 value={yearLevel}
                 onChange={(e) => setYearLevel(Number(e.target.value))}
               >
                 {YEAR_LEVELS.map((y: number) => (
                   <option key={y} value={y}>Year {y}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           )}
 
           {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+            <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive animate-in fade-in-0">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               {error}
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Saving...' : isAlumni ? 'Add Alumni' : 'Add Student'}
+          <Button type="submit" className="w-full" loading={loading}>
+            {loading ? 'Saving…' : isAlumni ? 'Add Alumni' : 'Add Student'}
           </Button>
         </form>
       </DialogContent>
