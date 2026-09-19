@@ -560,60 +560,6 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * STAFF:
-   * Confirm the signature after reviewing it.
-   *
-   * This changes the signing session from "signed"
-   * to "confirmed".
-   *
-   * The actual transaction release is handled separately
-   * by the transaction release endpoints.
-   */
-  app.post(
-    '/api/signing/sessions/:id/confirm',
-    {
-      preHandler: [authenticate, requireStaff],
-    },
-    async (request, reply) => {
-      const { id } = request.params as {
-        id: string;
-      };
-
-      const session =
-        await prisma.signingSession.findUnique({
-          where: { id },
-        });
-
-      if (!session) {
-        return reply.status(404).send({
-          error: 'Signing session not found',
-        });
-      }
-
-      if (session.status !== 'signed') {
-        return reply.status(400).send({
-          error:
-            'Signature must be submitted before it can be confirmed.',
-        });
-      }
-
-      await prisma.signingSession.update({
-        where: {
-          id: session.id,
-        },
-        data: {
-          status: 'confirmed',
-        },
-      });
-
-      return {
-        success: true,
-        status: 'confirmed',
-      };
-    }
-  );
-
-  /*
    * TABLET:
    * Check whether staff has confirmed the signature.
    */
@@ -635,6 +581,29 @@ export async function signingRoutes(app: FastifyInstance) {
         return reply.status(404).send({
           error: 'Signing session not found',
         });
+      }
+
+      /*
+       * Releasing the documents confirms the session. If a
+       * session is still "signed" but its documents are all
+       * released, the confirmation was lost: finish it here
+       * so the tablet stops waiting.
+       */
+      if (session.status === 'signed') {
+        const ids = sessionTransactionIds(session);
+
+        const released = await prisma.transaction.count({
+          where: { id: { in: ids }, status: 'Released' },
+        });
+
+        if (released === ids.length) {
+          await prisma.signingSession.update({
+            where: { id: session.id },
+            data: { status: 'confirmed' },
+          });
+
+          return { status: 'confirmed' };
+        }
       }
 
       return {

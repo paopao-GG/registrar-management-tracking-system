@@ -104,75 +104,38 @@ export function StaffDashboard() {
       customDate
     );
 
-    // Date, program and year apply to both the list and the stat tiles.
-    const dayParams = {
-      startDate: day,
-      endDate: day,
-      ...programYearParams(programFilter, yearLevelFilter),
-    };
-
-    const searchParams: Record<
+    // Status counts cover the day, program and year, not the status or search.
+    const params: Record<
       string,
       string | number
     > = {
-      ...dayParams,
+      startDate: day,
+      endDate: day,
+      ...programYearParams(programFilter, yearLevelFilter),
+      includeCounts: 1,
       _t: Date.now(),
     };
 
     if (debouncedSearch) {
-      searchParams.search = debouncedSearch;
+      params.search = debouncedSearch;
     }
 
     if (statusFilter) {
-      searchParams.status = statusFilter;
+      params.status = statusFilter;
     }
 
-    const countFor = (status: string) =>
-      api.get('/transactions', {
-        params: {
-          ...dayParams,
-          status,
-          limit: 1,
-          _t: Date.now(),
-        },
+    try {
+      const { data } = await api.get('/transactions', {
+        params,
       });
 
-    try {
-      const [
-        transactionsRes,
-        pendingRes,
-        processingRes,
-        readyRes,
-        releasedRes,
-      ] = await Promise.all([
-        api.get('/transactions', {
-          params: searchParams,
-        }),
-        countFor('Pending'),
-        countFor('Processing'),
-        countFor('Ready for Release'),
-        countFor('Released'),
-      ]);
+      const counts = data.counts ?? {};
 
-      setTransactions(
-        transactionsRes.data.transactions
-      );
-
-      setNewRequestsCount(
-        pendingRes.data.total
-      );
-
-      setProcessingCount(
-        processingRes.data.total
-      );
-
-      setReadyForReleaseCount(
-        readyRes.data.total
-      );
-
-      setCompletedCount(
-        releasedRes.data.total
-      );
+      setTransactions(data.transactions);
+      setNewRequestsCount(counts['Pending'] ?? 0);
+      setProcessingCount(counts['Processing'] ?? 0);
+      setReadyForReleaseCount(counts['Ready for Release'] ?? 0);
+      setCompletedCount(counts['Released'] ?? 0);
     } catch (error) {
       console.error(
         'Failed to refresh staff dashboard:',

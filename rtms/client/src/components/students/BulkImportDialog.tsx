@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 import {
   MAX_BULK_IMPORT_ROWS,
+  isBlankImportValue,
   type BulkImportRow,
   type BulkImportResult,
 } from '@rtams/shared';
@@ -35,6 +36,7 @@ const HEADER_MAP: Record<string, keyof BulkImportRow> = {
   universityemailaddress: 'email',
   sex: 'sex',
   gender: 'sex',
+  morf: 'sex',
   contactnumber: 'contactNumber',
   contactno: 'contactNumber',
   mobilenumber: 'contactNumber',
@@ -72,8 +74,8 @@ const TEMPLATE_HEADERS = [
   'Program',
   'Year Level',
   'Sex',
+  'BU Email',
   'Contact Number',
-  'Email Address',
 ];
 
 function normalizeHeader(h: string): string {
@@ -130,9 +132,9 @@ function rowsFromTable(
             : Number(String(raw ?? '').trim());
 
         out.yearLevel = Number.isFinite(n) ? n : NaN;
-      } else {
-        const s = String(raw ?? '').trim();
-        if (s) (out as any)[targetKey] = s;
+      } else if (!isBlankImportValue(raw)) {
+        // Placeholders like "---" are left out, as the server does.
+        (out as any)[targetKey] = String(raw).trim();
       }
     }
 
@@ -467,6 +469,15 @@ export function BulkImportDialog({
                       <th className="px-2 py-1.5 text-left">
                         Year
                       </th>
+                      <th className="px-2 py-1.5 text-left">
+                        Sex
+                      </th>
+                      <th className="px-2 py-1.5 text-left">
+                        BU Email
+                      </th>
+                      <th className="px-2 py-1.5 text-left">
+                        Contact Number
+                      </th>
                     </tr>
                   </thead>
 
@@ -498,6 +509,18 @@ export function BulkImportDialog({
 
                         <td className="px-2 py-1">
                           {r.yearLevel}
+                        </td>
+
+                        <td className="px-2 py-1">
+                          {r.sex ?? '—'}
+                        </td>
+
+                        <td className="px-2 py-1">
+                          {r.email ?? '—'}
+                        </td>
+
+                        <td className="px-2 py-1 whitespace-nowrap">
+                          {r.contactNumber ?? '—'}
                         </td>
                       </tr>
                     ))}

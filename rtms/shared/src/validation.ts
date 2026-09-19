@@ -39,9 +39,24 @@ const sexEnum = z.enum(['M', 'F'], {
   }),
 });
 
-// Optional for bulk imports, where the Registrar file may leave it blank.
-const sexField = z.preprocess(normalizeSex, sexEnum.optional());
 const requiredSexField = z.preprocess(normalizeSex, sexEnum);
+
+/**
+ * True for an imported cell that holds no data. Registrar exports
+ * fill empty cells with placeholders such as "---" or "N/A".
+ */
+export function isBlankImportValue(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  const v = String(value).trim();
+  return v === '' || /^[-\u2013\u2014.\s]+$/.test(v) || /^(n\/?a|none)$/i.test(v);
+}
+
+// Trimmed cell text, or undefined for blanks and placeholders.
+const importCell = (val: unknown) =>
+  isBlankImportValue(val) ? undefined : String(val).trim();
+
+// Optional for bulk imports, where the Registrar file may leave it blank.
+const sexField = z.preprocess((val) => normalizeSex(importCell(val)), sexEnum.optional());
 
 export const createStudentSchema = z
   .object({
@@ -82,16 +97,10 @@ export const bulkImportRowSchema = z.object({
   studentNumber: z.string().trim().min(1, 'Student number is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
   firstName: z.string().trim().min(1, 'First name is required'),
-  middleName: optionalTrimmedString,
-  email: z.preprocess(
-    (val) => (typeof val === 'string' ? val.trim() : val),
-    z.string().email('Invalid email').optional(),
-  ),
+  middleName: z.preprocess(importCell, z.string().optional()),
+  email: z.preprocess(importCell, z.string().email('Invalid email').optional()),
   sex: sexField,
-  contactNumber: z.preprocess(
-    (val) => (val === undefined || val === null ? undefined : String(val).trim() || undefined),
-    z.string().optional(),
-  ),
+  contactNumber: z.preprocess(importCell, z.string().optional()),
   course: z.string().trim().min(1, 'Program is required'),
   yearLevel: yearLevelFromAny,
 });
@@ -129,6 +138,8 @@ export const bulkIdsSchema = z.object({
 export const bulkReleaseSchema = bulkIdsSchema.extend({
   releasedTo: z.string().trim().min(1, 'Claimer name is required'),
   signature: z.string().min(1, 'Signature is required'),
+  // Tablet signing session to mark confirmed along with the release.
+  sessionId: z.string().min(1).optional(),
 });
 
 export const reportFiltersSchema = z.object({

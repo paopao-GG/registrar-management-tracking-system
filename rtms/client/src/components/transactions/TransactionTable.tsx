@@ -87,8 +87,16 @@ export function TransactionTable({
   );
 
   const canSign = userRole === 'admin' && !!onSign;
+
+  // Whether this user has a bulk action for rows in `status`.
+  const hasAction = (status: string) =>
+    (status === 'Pending' && !!onStartProcessing) ||
+    (status === 'Processing' && canSign) ||
+    (status === 'Ready for Release' && !!onRelease);
+
+  // Only rows with an action get a checkbox; hide the column when none do.
   const selectable =
-    showActions && (!!onStartProcessing || canSign || !!onRelease);
+    showActions && transactions.some((t) => hasAction(t.status));
 
   // Drop rows that disappeared or changed status (e.g. after a bulk action).
   useEffect(() => {
@@ -318,13 +326,15 @@ export function TransactionTable({
                 >
                   {selectable && (
                     <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${t.studentName}`}
-                        className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
-                        checked={selected.has(t._id)}
-                        onChange={() => toggleOne(t)}
-                      />
+                      {hasAction(t.status) && (
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${t.studentName}`}
+                          className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
+                          checked={selected.has(t._id)}
+                          onChange={() => toggleOne(t)}
+                        />
+                      )}
                     </td>
                   )}
 

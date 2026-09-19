@@ -173,8 +173,8 @@ export function ReportsPage() {
                   <tr className="border-b bg-muted/60">
                     <th className="px-3 py-2.5 text-left">External Client Name</th>
                     <th className="px-3 py-2.5 text-left">Requested Documents/Services</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 text-left">Contact Number</th>
                     <th className="px-3 py-2.5 text-left">University Email Address</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-left">Contact Number</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-left">Date of Transaction</th>
                   </tr>
                 </thead>
@@ -183,8 +183,8 @@ export function ReportsPage() {
                     <tr key={i} className="border-b border-border/60">
                       <td className="px-3 py-2.5 font-medium">{row.clientName}</td>
                       <td className="px-3 py-2.5">{row.requestedDocuments}</td>
-                      <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs">{row.contactNumber || '—'}</td>
                       <td className="px-3 py-2.5 text-muted-foreground">{row.email || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs">{row.contactNumber || '—'}</td>
                       <td className="tabular whitespace-nowrap px-3 py-2.5 font-mono text-xs">{row.transactionDate}</td>
                     </tr>
                   ))}

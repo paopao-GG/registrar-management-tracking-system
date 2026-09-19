@@ -104,12 +104,12 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
               </NativeSelect>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Contact Number <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <Input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="e.g. 09171234567" />
-            </div>
-            <div className="space-y-2">
               <label className="text-sm font-medium">BU Email <span className="font-normal text-muted-foreground">(optional)</span></label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Contact Number <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <Input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="e.g. 09171234567" />
             </div>
           </div>
 

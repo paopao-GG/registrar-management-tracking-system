@@ -103,7 +103,6 @@ export function NewRequestForm({ onCreated }: Props) {
                 key={studentFieldKey}
                 selectedName={selectedStudent?.name}
                 onSelect={(s) => setSelectedStudent(s)}
-                onImported={onCreated}
               />
             </div>
 

@@ -187,8 +187,8 @@ export function AdminStudentsPage() {
                       <th className="px-3 py-2.5">Name</th>
                       <th className="px-3 py-2.5">Program</th>
                       <th className="px-3 py-2.5">Year</th>
-                      <th className="px-3 py-2.5 whitespace-nowrap">Contact Number</th>
                       <th className="px-3 py-2.5 whitespace-nowrap">BU Email</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">Contact Number</th>
                       <th className="px-3 py-2.5" data-print-hide>Action</th>
                     </tr>
                   </thead>
@@ -201,11 +201,11 @@ export function AdminStudentsPage() {
                           {abbreviateCourse(s.course)}
                         </td>
                         <td className="px-3 py-2.5">{formatYearLevel(s.yearLevel)}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
-                          {s.contactNumber ?? '—'}
-                        </td>
                         <td className="px-3 py-2.5 text-muted-foreground">
                           {s.email ?? '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                          {s.contactNumber ?? '—'}
                         </td>
                         <td className="px-3 py-2.5" data-print-hide>
                           <Button

@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/roles.js';
 import {
   COURSE_ALIASES,
   createStudentSchema,
@@ -10,6 +12,54 @@ import {
   type BulkImportResult,
   type BulkImportFailed,
 } from '@rtams/shared';
+
+type DirectoryRow = {
+  studentNumber: string;
+  lastName: string;
+  firstName: string;
+  middleName: string | null;
+  email: string | null;
+  sex: string | null;
+  contactNumber: string | null;
+  course: string;
+  yearLevel: number;
+};
+
+// Rows per INSERT; 500 rows x 10 values stays far below Postgres's bind-parameter limit.
+const UPSERT_CHUNK_SIZE = 500;
+
+/*
+ * Create or update a chunk of directory rows in one statement,
+ * matching existing students by student number.
+ */
+function upsertStudents(rows: DirectoryRow[]) {
+  const values = rows.map(
+    (r) => Prisma.sql`(
+      gen_random_uuid()::text, ${r.studentNumber}, ${r.lastName}, ${r.firstName},
+      ${r.middleName}, ${r.email}, ${r.sex}, ${r.contactNumber}, ${r.course},
+      ${r.yearLevel}, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    )`
+  );
+
+  return prisma.$executeRaw`
+    INSERT INTO "Student" (
+      "id", "studentNumber", "lastName", "firstName", "middleName", "email",
+      "sex", "contactNumber", "course", "yearLevel", "active", "createdAt", "updatedAt"
+    )
+    VALUES ${Prisma.join(values)}
+    ON CONFLICT ("studentNumber") DO UPDATE SET
+      "lastName" = EXCLUDED."lastName",
+      "firstName" = EXCLUDED."firstName",
+      "middleName" = EXCLUDED."middleName",
+      "email" = EXCLUDED."email",
+      "sex" = EXCLUDED."sex",
+      "contactNumber" = EXCLUDED."contactNumber",
+      "course" = EXCLUDED."course",
+      "yearLevel" = EXCLUDED."yearLevel",
+      "active" = true,
+      "updatedAt" = CURRENT_TIMESTAMP
+  `;
+}
 
 function toApiStudent(s: any) {
   return {
@@ -284,6 +334,8 @@ export async function studentRoutes(app: FastifyInstance) {
    */
   app.post(
     '/api/students/bulk',
+    // A full Registrar directory is close to 1 MB; Vercel caps bodies at 4.5 MB.
+    { preHandler: requireAdmin, bodyLimit: 4 * 1024 * 1024 },
     async (request, reply) => {
       const parsed = bulkImportSchema.safeParse(
         request.body
@@ -317,17 +369,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
       type Staged = {
         rowNumber: number;
-        data: {
-          studentNumber: string;
-          lastName: string;
-          firstName: string;
-          middleName: string | null;
-          email: string | null;
-          sex: string | null;
-          contactNumber: string | null;
-          course: string;
-          yearLevel: number;
-        };
+        data: DirectoryRow;
       };
 
       /*
@@ -425,146 +467,81 @@ export async function studentRoutes(app: FastifyInstance) {
       }
 
       /*
-       * Get all current students so we can determine:
-       * - existing students
-       * - students that disappeared from the latest directory
+       * Classify each row against the current directory
+       * for the import summary.
        */
       const existingStudents =
         await prisma.student.findMany({
           select: {
-            id: true,
             studentNumber: true,
             active: true,
           },
         });
 
-      const existingByNumber =
-        new Map(
-          existingStudents.map(
-            (student) => [
-              student.studentNumber,
-              student,
-            ]
-          )
-        );
-
-      const uploadedNumbers =
-        new Set(
-          deduped.map(
-            (student) =>
-              student.data.studentNumber
-          )
-        );
+      const existingByNumber = new Map(
+        existingStudents.map((student) => [
+          student.studentNumber,
+          student,
+        ])
+      );
 
       let created = 0;
       let updated = 0;
       let reactivated = 0;
-      let deactivated = 0;
+
+      for (const item of deduped) {
+        const existing = existingByNumber.get(
+          item.data.studentNumber
+        );
+
+        if (!existing) created++;
+        else if (existing.active) updated++;
+        else reactivated++;
+      }
 
       /*
        * Stage 3:
-       * Apply the complete directory update
-       * inside one database transaction.
+       * Apply the complete directory update in one batch
+       * transaction: deactivate students missing from the
+       * file (never delete them), then upsert every row in
+       * chunks.
        */
-      await prisma.$transaction(
-        async (tx) => {
-          /*
-           * First mark existing students inactive.
-           *
-           * We do NOT delete them.
-           */
-          const deactivateResult =
-            await tx.student.updateMany({
-              where: {
-                active: true,
-                // Alumni are added per request, not by the roster.
-                isAlumni: false,
-                studentNumber: {
-                  notIn:
-                    Array.from(
-                      uploadedNumbers
-                    ),
-                },
-              },
-              data: {
-                active: false,
-              },
-            });
+      const upserts = [];
 
-          deactivated =
-            deactivateResult.count;
+      for (
+        let i = 0;
+        i < deduped.length;
+        i += UPSERT_CHUNK_SIZE
+      ) {
+        upserts.push(
+          upsertStudents(
+            deduped
+              .slice(i, i + UPSERT_CHUNK_SIZE)
+              .map((item) => item.data)
+          )
+        );
+      }
 
-          /*
-           * Then update existing students
-           * and create new students.
-           */
-          for (const item of deduped) {
-            const existing =
-              existingByNumber.get(
-                item.data.studentNumber
-              );
+      const [deactivateResult] = await prisma.$transaction([
+        prisma.student.updateMany({
+          where: {
+            active: true,
+            // Alumni are added per request, not by the roster.
+            isAlumni: false,
+            studentNumber: {
+              notIn: deduped.map(
+                (item) => item.data.studentNumber
+              ),
+            },
+          },
+          data: {
+            active: false,
+          },
+        }),
+        ...upserts,
+      ]);
 
-            if (existing) {
-              await tx.student.update({
-                where: {
-                  id: existing.id,
-                },
-                data: {
-                  lastName:
-                    item.data.lastName,
-                  firstName:
-                    item.data.firstName,
-                  middleName:
-                    item.data.middleName,
-                  email:
-                    item.data.email,
-                  sex:
-                    item.data.sex,
-                  contactNumber:
-                    item.data.contactNumber,
-                  course:
-                    item.data.course,
-                  yearLevel:
-                    item.data.yearLevel,
-                  active: true,
-                },
-              });
-
-              if (existing.active) {
-                updated++;
-              } else {
-                reactivated++;
-              }
-            } else {
-              await tx.student.create({
-                data: {
-                  studentNumber:
-                    item.data.studentNumber,
-                  lastName:
-                    item.data.lastName,
-                  firstName:
-                    item.data.firstName,
-                  middleName:
-                    item.data.middleName,
-                  email:
-                    item.data.email,
-                  sex:
-                    item.data.sex,
-                  contactNumber:
-                    item.data.contactNumber,
-                  course:
-                    item.data.course,
-                  yearLevel:
-                    item.data.yearLevel,
-                  active: true,
-                },
-              });
-
-              created++;
-            }
-          }
-        }
-      );
+      const deactivated = deactivateResult.count;
 
       request.log.info(
         {

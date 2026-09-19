@@ -40,15 +40,12 @@ export function AdminDashboard() {
   const isToday = day === getPhilippineDate();
 
   const fetchData = useCallback(async () => {
-    // Date, program and year apply to both the list and the stat tiles.
-    const dayParams = {
+    // Status counts cover the day, program and year, not the status filter.
+    const params: Record<string, string | number> = {
       startDate: day,
       endDate: day,
       ...programYearParams(programFilter, yearLevelFilter),
-    };
-
-    const params: Record<string, string | number> = {
-      ...dayParams,
+      includeCounts: 1,
       _t: Date.now(),
     };
 
@@ -56,38 +53,17 @@ export function AdminDashboard() {
       params.status = statusFilter;
     }
 
-    const countFor = (status: string) =>
-      api.get('/transactions', {
-        params: {
-          ...dayParams,
-          status,
-          limit: 1,
-          _t: Date.now(),
-        },
-      });
-
     try {
-      const [
-        transactionsRes,
-        pendingRes,
-        processingRes,
-        readyRes,
-        releasedRes,
-      ] = await Promise.all([
-        api.get('/transactions', { params }),
-        countFor('Pending'),
-        countFor('Processing'),
-        countFor('Ready for Release'),
-        countFor('Released'),
-      ]);
+      const { data } = await api.get('/transactions', { params });
+      const counts = data.counts ?? {};
 
-      setTransactions(transactionsRes.data.transactions);
+      setTransactions(data.transactions);
 
       setStats({
-        newRequests: pendingRes.data.total,
-        processing: processingRes.data.total,
-        readyForRelease: readyRes.data.total,
-        completed: releasedRes.data.total,
+        newRequests: counts['Pending'] ?? 0,
+        processing: counts['Processing'] ?? 0,
+        readyForRelease: counts['Ready for Release'] ?? 0,
+        completed: counts['Released'] ?? 0,
       });
     } catch (error) {
       console.error(

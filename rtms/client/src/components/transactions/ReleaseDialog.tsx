@@ -221,24 +221,16 @@ export function ReleaseDialog({
 
     try {
       /*
-       * First release every transaction with the one
-       * claimant signature.
+       * Release every transaction with the one claimant
+       * signature. Passing the session also confirms it,
+       * which tells the tablet in the same commit.
        */
       await api.post('/transactions/bulk/release', {
         ids: transactionIds,
         releasedTo: releasedTo.trim(),
         signature,
+        sessionId: sessionId ?? undefined,
       });
-
-      /*
-       * Then tell the tablet that staff has confirmed
-       * the signature.
-       */
-      if (sessionId) {
-        await api.post(
-          `/signing/sessions/${sessionId}/confirm`
-        );
-      }
 
       setReleasedTo('');
       setSuggestions([]);

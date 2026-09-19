@@ -62,6 +62,10 @@ export const COURSE_ALIASES: Record<string, string> = {
   'BTLED-HE':
     'Bachelor of Technology and Livelihood Education Major in Home Economics',
 
+  // Spelling used in the Registrar's directory export.
+  'BTLEd-HomeEcon':
+    'Bachelor of Technology and Livelihood Education Major in Home Economics',
+
   BSCS: 'Bachelor of Science in Computer Science',
 
   BSET: 'Bachelor of Science in Electrical Technology',
@@ -72,7 +76,8 @@ export const YEAR_LEVELS = [1, 2, 3, 4] as const;
 export const MAX_BULK_IMPORT_ROWS = 5000;
 
 export function normalizeCourse(input: string): string | null {
-  const cleaned = input.trim();
+  // Drop a trailing school year, e.g. "BSN 2026 - 2027".
+  const cleaned = input.trim().replace(/\s+\d{4}\s*-\s*\d{4}$/, '');
 
   if (!cleaned) return null;
 

@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin, requireStaff } from '../middleware/roles.js';
 import {
@@ -18,7 +18,28 @@ import {
   bulkStartProcessing,
   bulkSign,
   bulkRelease,
+  TransitionError,
 } from '../services/transaction.service.js';
+
+/*
+ * Status changes: show our own messages (e.g. wrong status),
+ * but keep raw database errors out of the user's toast.
+ */
+function sendTransitionError(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  error: unknown
+) {
+  if (error instanceof TransitionError) {
+    return reply.status(400).send({ error: error.message });
+  }
+
+  request.log.error(error, 'transaction status update failed');
+
+  return reply.status(500).send({
+    error: 'Could not update the requests. Refresh and try again.',
+  });
+}
 
 export async function transactionRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);
@@ -40,6 +61,7 @@ export async function transactionRoutes(app: FastifyInstance) {
           : undefined,
       page: query.page ? parseInt(query.page) : undefined,
       limit: query.limit ? parseInt(query.limit) : undefined,
+      includeCounts: query.includeCounts === '1',
     });
   });
 
@@ -94,8 +116,8 @@ export async function transactionRoutes(app: FastifyInstance) {
           request.user.id,
           request.user.name
         );
-      } catch (error: any) {
-        return reply.status(400).send({ error: error.message });
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
       }
     }
   );
@@ -117,8 +139,8 @@ export async function transactionRoutes(app: FastifyInstance) {
         );
 
         return transaction;
-      } catch (error: any) {
-        return reply.status(400).send({ error: error.message });
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
       }
     }
   );
@@ -150,8 +172,8 @@ export async function transactionRoutes(app: FastifyInstance) {
         );
 
         return transaction;
-      } catch (error: any) {
-        return reply.status(400).send({ error: error.message });
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
       }
     }
   );
@@ -170,8 +192,8 @@ export async function transactionRoutes(app: FastifyInstance) {
       try {
         const transactions = await bulkStartProcessing(parsed.data.ids, request.user);
         return { transactions };
-      } catch (error: any) {
-        return reply.status(400).send({ error: error.message });
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
       }
     }
   );
@@ -190,8 +212,8 @@ export async function transactionRoutes(app: FastifyInstance) {
       try {
         const transactions = await bulkSign(parsed.data.ids, request.user);
         return { transactions };
-      } catch (error: any) {
-        return reply.status(400).send({ error: error.message });
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
       }
     }
   );
@@ -212,11 +234,12 @@ export async function transactionRoutes(app: FastifyInstance) {
           parsed.data.ids,
           parsed.data.releasedTo,
           parsed.data.signature,
-          request.user
+          request.user,
+          parsed.data.sessionId
         );
         return { transactions };
-      } catch (error: any) {
-        return reply.status(400).send({ error: error.message });
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
       }
     }
   );

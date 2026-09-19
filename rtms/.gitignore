@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+
+# Registrar exports contain students' personal data
+*.xlsx

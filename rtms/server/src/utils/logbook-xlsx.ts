@@ -60,16 +60,16 @@ export async function buildArtaWorkbook(rows: ArtaReportRow[]) {
   const headers = [
     'External Client Name',
     'Requested Documents/Services',
-    'Contact Number',
     'University Email Address',
+    'Contact Number',
     'Date of Transaction',
   ];
 
   sheet.columns = [
     { width: 32 },
     { width: 34 },
-    { width: 18 },
     { width: 34 },
+    { width: 18 },
     { width: 20 },
   ];
 
@@ -87,8 +87,8 @@ export async function buildArtaWorkbook(rows: ArtaReportRow[]) {
     const row = sheet.addRow([
       r.clientName,
       r.requestedDocuments,
-      r.contactNumber,
       r.email,
+      r.contactNumber,
       r.transactionDate,
     ]);
     styleBodyRow(row, headers.length);
