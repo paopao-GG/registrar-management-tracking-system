@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { env } from './config/env.js';
-import { authRoutes, activityRoutes } from './routes/auth.routes.js';
+import { authRoutes } from './routes/auth.routes.js';
 import { studentRoutes } from './routes/student.routes.js';
 import { transactionRoutes } from './routes/transaction.routes.js';
 import { reportRoutes } from './routes/report.routes.js';
@@ -38,7 +38,6 @@ export async function buildApp() {
     await app.register(authRoutes);
   }
 
-  await app.register(activityRoutes);
   await app.register(studentRoutes);
   await app.register(transactionRoutes);
   await app.register(reportRoutes);

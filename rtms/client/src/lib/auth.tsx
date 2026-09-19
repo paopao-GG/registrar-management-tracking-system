@@ -42,16 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Clear the server-side activity marker; the local session ends regardless.
-    const savedToken = localStorage.getItem('rtams_token');
-    if (savedToken) {
-      api
-        .post('/auth/logout', null, {
-          headers: { Authorization: `Bearer ${savedToken}` },
-        })
-        .catch(() => {});
-    }
-
     setToken(null);
     setUser(null);
     localStorage.removeItem('rtams_token');

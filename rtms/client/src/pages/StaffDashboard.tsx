@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { NativeSelect } from '@/components/ui/select';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { LiveIndicator, StatTiles } from '@/components/dashboard/StatTiles';
+import { ProgramYearFilters, programYearParams } from '@/components/dashboard/ProgramYearFilters';
 import { Input } from '@/components/ui/input';
 import { NewRequestForm } from '@/components/transactions/NewRequestForm';
 import {
@@ -19,7 +20,6 @@ import {
 } from '@/components/transactions/TransactionTable';
 import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
 import { StartProcessingDialog } from '@/components/transactions/StartProcessingDialog';
-import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { useAuth } from '@/lib/auth';
 import { getPhilippineDate, getYesterdayPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
@@ -70,6 +70,10 @@ export function StaffDashboard() {
 
   const [statusFilter, setStatusFilter] = useState('');
 
+  const [programFilter, setProgramFilter] = useState('');
+
+  const [yearLevelFilter, setYearLevelFilter] = useState('');
+
   const [dateFilter, setDateFilter] =
     useState('today');
 
@@ -100,9 +104,11 @@ export function StaffDashboard() {
       customDate
     );
 
+    // Date, program and year apply to both the list and the stat tiles.
     const dayParams = {
       startDate: day,
       endDate: day,
+      ...programYearParams(programFilter, yearLevelFilter),
     };
 
     const searchParams: Record<
@@ -180,6 +186,8 @@ export function StaffDashboard() {
     dateFilter,
     customDate,
     statusFilter,
+    programFilter,
+    yearLevelFilter,
     debouncedSearch,
   ]);
 
@@ -207,8 +215,6 @@ export function StaffDashboard() {
       <PageHeader
         eyebrow={format(parseISO(selectedDay), 'EEEE, MMMM d, yyyy')}
         title={`Good day, ${user?.name?.split(' ')[0] ?? 'there'}`}
-        description="Log new requests, move them through processing, and release them to claimants."
-        actions={<ResetTabletButton />}
       />
 
       <StatTiles
@@ -283,6 +289,13 @@ export function StaffDashboard() {
               <option value="Ready for Release">Ready for Release</option>
               <option value="Released">Released</option>
             </NativeSelect>
+
+            <ProgramYearFilters
+              program={programFilter}
+              yearLevel={yearLevelFilter}
+              onProgramChange={setProgramFilter}
+              onYearLevelChange={setYearLevelFilter}
+            />
 
             {/* Search */}
             <div className="relative w-full md:max-w-xs">

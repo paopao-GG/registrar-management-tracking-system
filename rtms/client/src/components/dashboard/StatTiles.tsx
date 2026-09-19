@@ -42,16 +42,16 @@ export function StatTiles({
 
   return (
     <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
-      {tiles.map(({ label, value, icon: Icon, accent }, i) => (
+      {tiles.map(({ label, value, icon: Icon, accent }) => (
         <div
           key={label}
-          className="group relative overflow-hidden rounded-lg border border-border/80 bg-card p-4 shadow-paper transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift md:p-5"
+          className="rounded-lg border border-border/80 bg-card p-4 shadow-paper md:p-5"
         >
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs font-medium text-muted-foreground md:text-sm">{label}</p>
             <span
               className={cn(
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-transform group-hover:scale-110',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
                 accent
               )}
             >
@@ -65,11 +65,6 @@ export function StatTiles({
               {value}
             </p>
           )}
-          <span
-            aria-hidden="true"
-            className="absolute bottom-0 left-0 h-0.5 w-full origin-left scale-x-0 bg-seal transition-transform duration-300 group-hover:scale-x-100"
-            style={{ transitionDelay: `${i * 20}ms` }}
-          />
         </div>
       ))}
     </div>

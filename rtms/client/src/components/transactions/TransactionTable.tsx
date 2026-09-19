@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -118,15 +117,24 @@ export function TransactionTable({
   const processingSelected = selectedRows.filter((t) => t.status === 'Processing');
   const readySelected = selectedRows.filter((t) => t.status === 'Ready for Release');
 
+  // Select-all is offered only once the selection holds a single status.
+  const selectedStatuses = new Set(selected.values());
+  const selectedStatus =
+    selectedStatuses.size === 1 ? [...selectedStatuses][0] : null;
+
+  const sameStatusRows = selectedStatus
+    ? transactions.filter((t) => t.status === selectedStatus)
+    : [];
+
   const allSelected =
-    transactions.length > 0 &&
-    transactions.every((t) => selected.has(t._id));
+    sameStatusRows.length > 0 &&
+    sameStatusRows.every((t) => selected.has(t._id));
 
   const toggleAll = () => {
     setSelected(
       allSelected
         ? new Map()
-        : new Map(transactions.map((t) => [t._id, t.status]))
+        : new Map(sameStatusRows.map((t) => [t._id, t.status]))
     );
   };
 
@@ -226,13 +234,16 @@ export function TransactionTable({
             <tr className="border-b bg-muted/60">
               {selectable && (
                 <th className="w-8 px-3 py-2.5 text-left">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all transactions"
-                    className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                  />
+                  {selectedStatus && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select all ${selectedStatus} transactions`}
+                      title={`Select all ${selectedStatus}`}
+                      className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                    />
+                  )}
                 </th>
               )}
               <th className="px-3 py-2.5 text-left whitespace-nowrap">
@@ -454,10 +465,9 @@ export function TransactionTable({
         open={!!viewSig}
         onOpenChange={() => setViewSig(null)}
       >
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>E-Signature</DialogTitle>
-            <DialogDescription>Signature captured when the document was released.</DialogDescription>
           </DialogHeader>
 
           {viewSig && (

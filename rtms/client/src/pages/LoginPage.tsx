@@ -42,7 +42,7 @@ export function LoginPage() {
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-[1.05fr_1fr]">
       {/* Institutional panel */}
-      <aside className="relative hidden overflow-hidden bg-[hsl(222_60%_14%)] text-[hsl(40_30%_94%)] lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <aside className="relative hidden overflow-hidden bg-[hsl(222_47%_11%)] text-[hsl(210_40%_98%)] lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div
           aria-hidden="true"
           className="absolute inset-0 opacity-[0.07]"
@@ -53,15 +53,15 @@ export function LoginPage() {
         />
         <div
           aria-hidden="true"
-          className="absolute -right-40 -top-40 h-[28rem] w-[28rem] rounded-full border-[40px] border-[hsl(38_80%_48%/0.14)]"
+          className="absolute -right-40 -top-40 h-[28rem] w-[28rem] rounded-full border-[40px] border-[hsl(221_83%_60%/0.14)]"
         />
         <div
           aria-hidden="true"
-          className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[hsl(38_80%_48%/0.1)] blur-3xl"
+          className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[hsl(221_83%_60%/0.1)] blur-3xl"
         />
 
         <div className="relative flex items-center gap-3 animate-fade-up">
-          <SealMark className="h-11 w-11 bg-[hsl(40_30%_94%)] text-base text-[hsl(222_60%_14%)] ring-offset-[hsl(222_60%_14%)]" />
+          <SealMark className="h-11 w-11 bg-[hsl(210_40%_98%)] text-base text-[hsl(222_47%_11%)] ring-offset-[hsl(222_47%_11%)]" />
           <div>
             <p className="font-display text-xl font-semibold leading-none">RTAMS</p>
             <p className="mt-1 font-mono text-[0.65rem] uppercase tracking-[0.2em] opacity-70">
@@ -77,7 +77,7 @@ export function LoginPage() {
           >
             Every record,
             <br />
-            <em className="font-normal text-[hsl(38_80%_62%)]">accounted for.</em>
+            <em className="font-normal text-[hsl(213_94%_78%)]">accounted for.</em>
           </h1>
           <ul className="space-y-4">
             {highlights.map(({ icon: Icon, text }, i) => (

@@ -11,9 +11,9 @@ import { PageHeader } from '@/components/ui/page-header';
 import { NativeSelect } from '@/components/ui/select';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { LiveIndicator, StatTiles } from '@/components/dashboard/StatTiles';
+import { ProgramYearFilters, programYearParams } from '@/components/dashboard/ProgramYearFilters';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
-import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { Input } from '@/components/ui/input';
 import { getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
@@ -30,6 +30,8 @@ export function AdminDashboard() {
 
   const [dateFilter, setDateFilter] = useState(getPhilippineDate);
   const [statusFilter, setStatusFilter] = useState('');
+  const [programFilter, setProgramFilter] = useState('');
+  const [yearLevelFilter, setYearLevelFilter] = useState('');
   const [signIds, setSignIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -38,9 +40,11 @@ export function AdminDashboard() {
   const isToday = day === getPhilippineDate();
 
   const fetchData = useCallback(async () => {
+    // Date, program and year apply to both the list and the stat tiles.
     const dayParams = {
       startDate: day,
       endDate: day,
+      ...programYearParams(programFilter, yearLevelFilter),
     };
 
     const params: Record<string, string | number> = {
@@ -93,7 +97,7 @@ export function AdminDashboard() {
     } finally {
       setLoaded(true);
     }
-  }, [statusFilter, day]);
+  }, [statusFilter, programFilter, yearLevelFilter, day]);
 
   // Initial load and refresh whenever filters change.
   useEffect(() => {
@@ -114,8 +118,6 @@ export function AdminDashboard() {
       <PageHeader
         eyebrow={format(parseISO(day), 'EEEE, MMMM d, yyyy')}
         title="Admin Dashboard"
-        description="Review, sign, and monitor the registrar's requests for the day."
-        actions={<ResetTabletButton />}
       />
 
       <StatTiles {...stats} isToday={isToday} loading={!loaded} />
@@ -155,6 +157,14 @@ export function AdminDashboard() {
               <option value="Ready for Release">Ready for Release</option>
               <option value="Released">Released</option>
             </NativeSelect>
+
+            <ProgramYearFilters
+              compact={false}
+              program={programFilter}
+              yearLevel={yearLevelFilter}
+              onProgramChange={setProgramFilter}
+              onYearLevelChange={setYearLevelFilter}
+            />
           </div>
         </CardHeader>
 

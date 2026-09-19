@@ -8,7 +8,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
-import { AlertCircle, Check, CheckCircle2, Lock, PenLine, Send, UserX } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, PenLine, Send } from 'lucide-react';
 
 interface TabletSession {
   token: string;
@@ -23,50 +23,12 @@ interface TabletSession {
     | 'expired';
 }
 
-/*
- * Why the tablet cannot be used right now.
- * - locked: the sign page is open on another device.
- * - no_staff: no staff member is currently active.
- */
-type Availability = 'ok' | 'locked' | 'no_staff';
-
-const DEVICE_KEY = 'rtams_tablet_device';
 const SESSION_POLL_MS = 500;
-const UNAVAILABLE_POLL_MS = 3000;
-
-function createDeviceId() {
-  // randomUUID needs a secure context; the tablet may use plain HTTP on the LAN.
-  if (typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function getDeviceId() {
-  try {
-    const saved = localStorage.getItem(DEVICE_KEY);
-    if (saved) return saved;
-
-    const id = createDeviceId();
-    localStorage.setItem(DEVICE_KEY, id);
-    return id;
-  } catch {
-    return createDeviceId();
-  }
-}
-
 export function TabletSignPage() {
-  const [deviceId] = useState(getDeviceId);
   const toast = useToast();
-  const tablet = { headers: { 'X-Tablet-Device': deviceId } };
 
   const [session, setSession] =
     useState<TabletSession | null>(null);
-
-  const [availability, setAvailability] =
-    useState<Availability>('ok');
 
   const [loading, setLoading] =
     useState(true);
@@ -95,32 +57,17 @@ export function TabletSignPage() {
    * Check for the current signing session.
    *
    * The tablet checks frequently so a new signing
-   * request appears with very little delay. While the
-   * tablet is unavailable it checks less often.
+   * request appears with very little delay.
    */
   useEffect(() => {
     if (submitted || confirmed) return;
 
     let mounted = true;
 
-    const claimDevice = async () => {
-      try {
-        await api.post('/signing/tablet/claim', null, tablet);
-        return true;
-      } catch (err: any) {
-        if (err.response?.status === 423) {
-          return false;
-        }
-
-        throw err;
-      }
-    };
-
     const checkForSession = async () => {
       try {
         const response = await api.get(
-          '/signing/tablet/current',
-          tablet
+          '/signing/tablet/current'
         );
 
         if (!mounted) return;
@@ -128,7 +75,6 @@ export function TabletSignPage() {
         const currentSession =
           response.data.session ?? null;
 
-        setAvailability('ok');
         setError(null);
         setLoading(false);
 
@@ -150,43 +96,15 @@ export function TabletSignPage() {
       } catch (err: any) {
         if (!mounted) return;
 
-        const status = err.response?.status;
-
-        if (status === 423) {
-          // Not (or no longer) the registered tablet: try to claim it.
-          try {
-            const claimed = await claimDevice();
-
-            if (!mounted) return;
-
-            if (!claimed) {
-              setAvailability('locked');
-              setSession(null);
-              setLoading(false);
-            }
-          } catch (claimErr) {
-            console.error('Failed to claim tablet', claimErr);
-            if (!mounted) return;
-            setError('Unable to connect to RTAMS.');
-            setLoading(false);
-          }
-          return;
-        }
-
-        if (status === 503) {
-          setAvailability('no_staff');
-          setSession(null);
-          setLoading(false);
-          return;
-        }
-
         console.error(
           'Failed to check tablet session',
           err
         );
 
+        // Show the server's reason when there is one; no response means a network failure.
         setError(
-          'Unable to connect to RTAMS.'
+          err.response?.data?.error ||
+            'Unable to connect to RTAMS.'
         );
 
         setLoading(false);
@@ -197,18 +115,14 @@ export function TabletSignPage() {
 
     const interval = setInterval(
       checkForSession,
-      availability === 'ok'
-        ? SESSION_POLL_MS
-        : UNAVAILABLE_POLL_MS
+      SESSION_POLL_MS
     );
 
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-    // `tablet` only wraps the stable deviceId.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, confirmed, availability, deviceId]);
+  }, [submitted, confirmed]);
 
   /*
    * Send the current signature drawing to the server.
@@ -241,8 +155,7 @@ export function TabletSignPage() {
 
         await api.post(
           `/signing/sessions/${session.token}/progress`,
-          { signature },
-          tablet
+          { signature }
         );
       } catch (err) {
         console.error(
@@ -263,8 +176,7 @@ export function TabletSignPage() {
     return () => {
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, submitted, confirmed, deviceId]);
+  }, [session, submitted, confirmed]);
 
   /*
    * After staff confirms the signature, show
@@ -298,8 +210,7 @@ export function TabletSignPage() {
     const checkConfirmation = async () => {
       try {
         const response = await api.get(
-          `/signing/tablet/status/${session.token}`,
-          tablet
+          `/signing/tablet/status/${session.token}`
         );
 
         if (!mounted) return;
@@ -346,8 +257,7 @@ export function TabletSignPage() {
       mounted = false;
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, session, deviceId]);
+  }, [submitted, session]);
 
   /*
    * Submit the final signature from the tablet.
@@ -382,8 +292,7 @@ export function TabletSignPage() {
         {
           signature,
           consent: true,
-        },
-        tablet
+        }
       );
 
       /*
@@ -418,40 +327,6 @@ export function TabletSignPage() {
     return (
       <StatusScreen icon={<Spinner size="lg" />} title="RTAMS Signature">
         <p className="text-muted-foreground">Connecting to RTAMS…</p>
-      </StatusScreen>
-    );
-  }
-
-  /*
-   * The sign page is already open on another device.
-   */
-  if (availability === 'locked') {
-    return (
-      <StatusScreen icon={<Lock className="h-8 w-8" />} tone="warning" title="Tablet Already in Use">
-        <p className="text-muted-foreground">
-          The RTAMS signature page is already open on another device.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Close it there, or ask Registrar staff to reset the
-          tablet from their dashboard.
-        </p>
-      </StatusScreen>
-    );
-  }
-
-  /*
-   * No staff member is currently active.
-   */
-  if (availability === 'no_staff') {
-    return (
-      <StatusScreen icon={<UserX className="h-8 w-8" />} tone="warning" title="Signing Unavailable">
-        <p className="text-muted-foreground">
-          No Registrar staff is currently active.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          This page will be available again once a staff
-          member is logged in.
-        </p>
       </StatusScreen>
     );
   }
@@ -592,7 +467,7 @@ function StatusScreen({
 }: {
   icon: ReactNode;
   title: string;
-  tone?: 'default' | 'success' | 'warning';
+  tone?: 'default' | 'success';
   children: ReactNode;
 }) {
   return (
@@ -602,7 +477,6 @@ function StatusScreen({
           className={cn(
             'mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full ring-8',
             tone === 'success' && 'bg-success/10 text-success ring-success/5',
-            tone === 'warning' && 'bg-warning/10 text-warning ring-warning/5',
             tone === 'default' && 'bg-primary/10 text-primary ring-primary/5'
           )}
         >

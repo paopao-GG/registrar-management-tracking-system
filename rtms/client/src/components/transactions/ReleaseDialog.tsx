@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -331,16 +330,13 @@ export function ReleaseDialog({
         }
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
             {count > 1
               ? `Release ${count} Documents`
               : 'Release Document'}
           </DialogTitle>
-          <DialogDescription>
-            Confirm who is claiming, then capture their signature on the tablet.
-          </DialogDescription>
         </DialogHeader>
 
         {count > 1 && (

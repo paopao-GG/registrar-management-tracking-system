@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { DocumentCounter } from './DocumentCounter';
 import { StudentAutocomplete } from '@/components/students/StudentAutocomplete';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
-import { DOCUMENT_TYPES } from '@rtams/shared';
+import { DOCUMENT_TYPES, abbreviateCourse } from '@rtams/shared';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
@@ -25,7 +25,7 @@ export function NewRequestForm({ onCreated }: Props) {
   const [others, setOthers] = useState('');
   const [othersCount, setOthersCount] = useState(0);
   const [alumniOpen, setAlumniOpen] = useState(false);
-  // Remounts the search box so it clears after a save or an alumni entry.
+  // Remounts the search box so it clears after a save.
   const [studentFieldKey, setStudentFieldKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -72,7 +72,6 @@ export function NewRequestForm({ onCreated }: Props) {
         <CardHeader>
           <p className="eyebrow">Intake</p>
           <CardTitle>New Request</CardTitle>
-          <CardDescription>Log a student's document request at the counter.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,6 +101,7 @@ export function NewRequestForm({ onCreated }: Props) {
               </div>
               <StudentAutocomplete
                 key={studentFieldKey}
+                selectedName={selectedStudent?.name}
                 onSelect={(s) => setSelectedStudent(s)}
                 onImported={onCreated}
               />
@@ -118,7 +118,7 @@ export function NewRequestForm({ onCreated }: Props) {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Program &amp; Year</label>
                   <Input
-                    value={`${selectedStudent.course} - ${
+                    value={`${abbreviateCourse(selectedStudent.course)} - ${
                       selectedStudent.isAlumni
                         ? 'Alumni'
                         : `Year ${selectedStudent.yearLevel}`
@@ -171,10 +171,7 @@ export function NewRequestForm({ onCreated }: Props) {
         open={alumniOpen}
         mode="alumni"
         onClose={() => setAlumniOpen(false)}
-        onCreated={(alumni) => {
-          setStudentFieldKey((k) => k + 1);
-          setSelectedStudent(alumni);
-        }}
+        onCreated={(alumni) => setSelectedStudent(alumni)}
       />
     </>
   );

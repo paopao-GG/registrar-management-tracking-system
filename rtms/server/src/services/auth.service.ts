@@ -19,11 +19,6 @@ export async function login(username: string, password: string) {
     throw new Error('Invalid credentials');
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastActiveAt: new Date() },
-  });
-
   const token = signToken({
     id: user.id,
     role: user.role,

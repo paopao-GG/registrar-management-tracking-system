@@ -158,6 +158,8 @@ interface QueryFilters {
   startDate?: string;
   endDate?: string;
   search?: string;
+  course?: string;
+  yearLevel?: number;
   page?: number;
   limit?: number;
 }
@@ -168,6 +170,10 @@ export async function getTransactions(filters: QueryFilters) {
   if (filters.status) where.status = filters.status;
   if (filters.preparedBy) where.preparedBy = filters.preparedBy;
   if (filters.search) where.studentName = { contains: filters.search, mode: 'insensitive' };
+  if (filters.course) where.studentCourse = filters.course;
+  if (filters.yearLevel !== undefined && !Number.isNaN(filters.yearLevel)) {
+    where.studentYearLevel = filters.yearLevel;
+  }
 
   if (filters.startDate || filters.endDate) {
     where.preparedAt = phDayRange(filters.startDate, filters.endDate);

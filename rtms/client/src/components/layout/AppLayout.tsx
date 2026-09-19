@@ -4,7 +4,6 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { useAuth } from '@/lib/auth';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
-import { useActivityHeartbeat } from '@/hooks/useActivityHeartbeat';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { SealMark, Wordmark } from '@/components/ui/seal-mark';
@@ -44,7 +43,6 @@ export function AppLayout() {
   const mainRef = useRef<HTMLElement>(null);
 
   useInactivityTimeout(logout);
-  useActivityHeartbeat(!!user);
 
   const isAdmin = user?.role === 'admin';
 

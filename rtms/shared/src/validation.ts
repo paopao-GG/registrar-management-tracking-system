@@ -24,17 +24,24 @@ const optionalTrimmedString = z.preprocess(
   z.string().min(1).optional(),
 );
 
-const sexField = z.preprocess(
-  (val) => {
-    if (typeof val !== 'string') return val;
-    const v = val.trim().toUpperCase();
-    if (!v) return undefined;
-    if (v === 'MALE') return 'M';
-    if (v === 'FEMALE') return 'F';
-    return v;
-  },
-  z.enum(['M', 'F'], { errorMap: () => ({ message: 'Sex must be M or F' }) }).optional(),
-);
+const normalizeSex = (val: unknown) => {
+  if (typeof val !== 'string') return val;
+  const v = val.trim().toUpperCase();
+  if (!v) return undefined;
+  if (v === 'MALE') return 'M';
+  if (v === 'FEMALE') return 'F';
+  return v;
+};
+
+const sexEnum = z.enum(['M', 'F'], {
+  errorMap: (issue, ctx) => ({
+    message: issue.code === 'invalid_type' && ctx.data === undefined ? 'Sex is required' : 'Sex must be M or F',
+  }),
+});
+
+// Optional for bulk imports, where the Registrar file may leave it blank.
+const sexField = z.preprocess(normalizeSex, sexEnum.optional());
+const requiredSexField = z.preprocess(normalizeSex, sexEnum);
 
 export const createStudentSchema = z
   .object({
@@ -46,7 +53,7 @@ export const createStudentSchema = z
       (val) => (typeof val === 'string' ? val.trim() : val),
       z.string().email('Invalid email').optional(),
     ),
-    sex: sexField,
+    sex: requiredSexField,
     contactNumber: optionalTrimmedString,
     course: z.string().min(1, 'Course is required'),
     isAlumni: z.boolean().optional(),

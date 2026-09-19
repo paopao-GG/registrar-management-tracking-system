@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NativeSelect } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { AlertCircle } from 'lucide-react';
@@ -49,7 +49,7 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
     setLoading(true);
     setError(null);
     try {
-      const payload: Record<string, unknown> = { lastName, firstName, course };
+      const payload: Record<string, unknown> = { lastName, firstName, sex, course };
       if (isAlumni) {
         payload.isAlumni = true;
       } else {
@@ -58,7 +58,6 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
       if (middleName.trim()) payload.middleName = middleName.trim();
       if (studentNumber.trim()) payload.studentNumber = studentNumber.trim();
       if (email.trim()) payload.email = email.trim();
-      if (sex) payload.sex = sex;
       if (contactNumber.trim()) payload.contactNumber = contactNumber.trim();
       const { data } = await api.post('/students', payload);
       onCreated(data);
@@ -74,14 +73,9 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{isAlumni ? 'Add Alumni Request' : 'Add New Student'}</DialogTitle>
-          <DialogDescription>
-            {isAlumni
-              ? 'Record a graduate who is requesting documents.'
-              : 'Add a student who is not yet in the imported roster.'}
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -102,13 +96,9 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
               <Input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} placeholder="e.g. 2023-0000-00001" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">BU Email <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sex <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <NativeSelect value={sex} onChange={(e) => setSex(e.target.value)}>
-                <option value="">—</option>
+              <label className="text-sm font-medium">Sex</label>
+              <NativeSelect value={sex} onChange={(e) => setSex(e.target.value)} required>
+                <option value="" disabled>Select…</option>
                 <option value="M">M</option>
                 <option value="F">F</option>
               </NativeSelect>
@@ -116,6 +106,10 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
             <div className="space-y-2">
               <label className="text-sm font-medium">Contact Number <span className="font-normal text-muted-foreground">(optional)</span></label>
               <Input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="e.g. 09171234567" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">BU Email <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
           </div>
 
@@ -126,7 +120,7 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
               onChange={(e) => setCourse(e.target.value)}
             >
               {COURSES.map((c: string) => (
-                <option key={c} value={c}>{abbreviateCourse(c)} — {c}</option>
+                <option key={c} value={c} title={c}>{abbreviateCourse(c)}</option>
               ))}
             </NativeSelect>
           </div>

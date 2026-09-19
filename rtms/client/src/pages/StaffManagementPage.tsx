@@ -143,7 +143,6 @@ export function StaffManagementPage() {
       <PageHeader
         eyebrow="Administration"
         title="Staff Management"
-        description="Create accounts, control access, and reset passwords for registrar staff."
         actions={
           <Button onClick={() => setAddOpen(true)} className="w-full sm:w-auto">
             <UserPlus className="h-4 w-4" />
@@ -220,10 +219,9 @@ export function StaffManagementPage() {
 
       {/* Add Staff Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Add Staff</DialogTitle>
-            <DialogDescription>Create a sign-in for a new registrar staff member.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="space-y-2">

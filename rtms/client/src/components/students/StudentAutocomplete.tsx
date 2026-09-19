@@ -24,12 +24,15 @@ interface Props {
   onSelect: (student: Student) => void;
   onImported?: () => void;
   resetKey?: number;
+  // Name of a student picked outside the search box (e.g. a newly added alumni).
+  selectedName?: string;
 }
 
 export function StudentAutocomplete({
   onSelect,
   onImported,
   resetKey,
+  selectedName,
 }: Props) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -47,6 +50,15 @@ export function StudentAutocomplete({
     setIsOpen(false);
     setHighlightedIndex(-1);
   }, [resetKey]);
+
+  // Show a student chosen elsewhere as the current selection.
+  useEffect(() => {
+    if (!selectedName) return;
+
+    setQuery(selectedName);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  }, [selectedName]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

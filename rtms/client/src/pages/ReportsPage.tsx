@@ -73,7 +73,6 @@ export function ReportsPage() {
       <PageHeader
         eyebrow="Reporting"
         title="Summary Reports"
-        description="Generate ARTA and BUP logbooks for any date range."
         actions={
           rows.length > 0 && (
             <Button variant="outline" onClick={() => window.print()}>

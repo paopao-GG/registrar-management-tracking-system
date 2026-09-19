@@ -30,13 +30,31 @@ const HEADER_MAP: Record<string, keyof BulkImportRow> = {
   email: 'email',
   emailaddress: 'email',
   buemail: 'email',
+  buemailaddress: 'email',
+  universityemail: 'email',
+  universityemailaddress: 'email',
   sex: 'sex',
   gender: 'sex',
   contactnumber: 'contactNumber',
   contactno: 'contactNumber',
   mobilenumber: 'contactNumber',
   mobileno: 'contactNumber',
+  studentcontactnumber: 'contactNumber',
+  studentscontactnumber: 'contactNumber',
+  studentcontactno: 'contactNumber',
+  studentscontactno: 'contactNumber',
 };
+
+/*
+ * Registrar exports name these columns inconsistently
+ * (e.g. "University Email", "Student's Contact Number"),
+ * so fall back to a keyword match for them.
+ */
+function fuzzyHeaderKey(normalized: string): keyof BulkImportRow | undefined {
+  if (normalized.includes('email')) return 'email';
+  if (normalized.includes('contact') || normalized.includes('mobile')) return 'contactNumber';
+  return undefined;
+}
 
 const REQUIRED_KEYS: Array<keyof BulkImportRow> = [
   'studentNumber',
@@ -53,9 +71,9 @@ const TEMPLATE_HEADERS = [
   'Middle Name',
   'Program',
   'Year Level',
-  'Email Address',
   'Sex',
   'Contact Number',
+  'Email Address',
 ];
 
 function normalizeHeader(h: string): string {
@@ -74,6 +92,17 @@ function rowsFromTable(
   for (const h of headers) {
     const key = HEADER_MAP[normalizeHeader(h)];
     if (key) headerLookup.set(h, key);
+  }
+
+  // Keyword fallback, only for fields no header matched exactly.
+  const claimedKeys = new Set(headerLookup.values());
+  for (const h of headers) {
+    if (headerLookup.has(h)) continue;
+    const key = fuzzyHeaderKey(normalizeHeader(h));
+    if (key && !claimedKeys.has(key)) {
+      headerLookup.set(h, key);
+      claimedKeys.add(key);
+    }
   }
 
   const mappedKeys = new Set(headerLookup.values());
@@ -350,14 +379,11 @@ export function BulkImportDialog({
         open={open}
         onOpenChange={(v) => !v && handleClose()}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               Update Student Directory
             </DialogTitle>
-            <DialogDescription>
-              Replace the roster with the Registrar's latest export.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

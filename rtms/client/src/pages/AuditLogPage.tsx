@@ -78,7 +78,6 @@ export function AuditLogPage() {
       <PageHeader
         eyebrow="Accountability"
         title="Audit Log"
-        description="Every status change, who made it, and when."
         actions={
           <Button variant="outline" onClick={() => window.print()} disabled={logs.length === 0}>
             <Printer className="h-4 w-4" />
