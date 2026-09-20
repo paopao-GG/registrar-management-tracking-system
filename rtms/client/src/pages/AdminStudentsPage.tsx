@@ -81,7 +81,9 @@ export function AdminStudentsPage() {
   const handleRemove = async (student: Student) => {
     const confirmed = await confirm({
       title: `Remove ${student.name}?`,
-      description: `Student #${student.studentNumber} will be removed from the directory.`,
+      description:
+        `Student #${student.studentNumber} will be removed from the directory. ` +
+        'Any requests already encoded for them are kept.',
       confirmText: 'Remove student',
       tone: 'destructive',
     });
@@ -90,8 +92,18 @@ export function AdminStudentsPage() {
 
     setRemovingId(student._id);
     try {
-      await api.delete(`/students/${student._id}`);
-      toast.success('Student removed', { description: student.name });
+      const { data } = await api.delete(`/students/${student._id}`);
+
+      // Say when requests were left behind, so it is clear the history
+      // survived rather than the removal having half worked.
+      const kept = data?.keptTransactions ?? 0;
+
+      toast.success('Student removed', {
+        description: kept
+          ? `${student.name} — ${kept} existing ${kept === 1 ? 'request' : 'requests'} kept`
+          : student.name,
+      });
+
       await fetchStudents();
     } catch (error: any) {
       const message =

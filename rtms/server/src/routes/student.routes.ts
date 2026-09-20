@@ -211,10 +211,14 @@ export async function studentRoutes(app: FastifyInstance) {
   /*
    * Remove student — Admin only.
    *
-   * This is still a manual removal feature.
-   * It physically deletes only students without transactions.
+   * Removal means leaving the Enrolled Students directory, not losing the
+   * record. A student with no transactions is deleted outright; one with
+   * transactions is deactivated instead, exactly as the roster import
+   * deactivates a student who is no longer on file.
    *
-   * Students with transactions are protected.
+   * Their transactions are never touched. Each one keeps its own copy of
+   * the name, course and year level from the moment it was encoded, so
+   * requests, reports and audit logs still read correctly afterwards.
    */
   app.delete('/api/students/:id', async (request, reply) => {
     if (request.user.role !== 'admin') {
@@ -228,8 +232,11 @@ export async function studentRoutes(app: FastifyInstance) {
     try {
       const student = await prisma.student.findUnique({
         where: { id },
-        include: {
-          transactions: true,
+        select: {
+          id: true,
+          _count: {
+            select: { transactions: true },
+          },
         },
       });
 
@@ -239,10 +246,20 @@ export async function studentRoutes(app: FastifyInstance) {
         });
       }
 
-      if (student.transactions.length > 0) {
-        return reply.status(409).send({
-          error:
-            'Cannot remove a student with existing transactions.',
+      /*
+       * Transactions reference this row, so deleting it would take the
+       * history with it. Deactivating drops the student from the
+       * directory and leaves every request where it is.
+       */
+      if (student._count.transactions > 0) {
+        await prisma.student.update({
+          where: { id },
+          data: { active: false },
+        });
+
+        return reply.status(200).send({
+          message: 'Student removed from the directory',
+          keptTransactions: student._count.transactions,
         });
       }
 
@@ -252,6 +269,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
       return reply.status(200).send({
         message: 'Student removed successfully',
+        keptTransactions: 0,
       });
     } catch (err) {
       request.log.error(
@@ -288,11 +306,18 @@ export async function studentRoutes(app: FastifyInstance) {
     }
 
     /*
-     * A not-enrolled student is kept out of the current roster,
-     * like a student missing from the latest import.
+     * A request-only student is kept out of the current roster, like a
+     * student missing from the latest import.
+     *
+     * Enrolment happens through the Students Page, which is admin only,
+     * so anyone staff add while encoding a request is request-only
+     * whatever the payload asked for. Enforced here rather than in the
+     * form, so the rule holds for a direct call to the API too.
      */
-    const notEnrolled =
-      !parsed.data.isAlumni && parsed.data.notEnrolled === true;
+    const requestOnly =
+      !parsed.data.isAlumni &&
+      (parsed.data.notEnrolled === true ||
+        request.user.role !== 'admin');
 
     try {
       const student = await prisma.student.create({
@@ -313,11 +338,11 @@ export async function studentRoutes(app: FastifyInstance) {
           // Year level 0 marks an alumni record.
           yearLevel: parsed.data.isAlumni
             ? 0
-            : notEnrolled
+            : requestOnly
               ? NOT_ENROLLED_YEAR_LEVEL
               : parsed.data.yearLevel!,
           isAlumni: parsed.data.isAlumni ?? false,
-          active: !notEnrolled,
+          active: !requestOnly,
         },
       });
 
