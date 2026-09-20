@@ -208,9 +208,9 @@ The tablet has **no login of its own**. Every tablet endpoint (`tablet/current`,
 1. **Device lock** — the request carries the `X-Tablet-Device` header of the device holding the `TabletLock` row, otherwise `423 not_claimed`.
 2. **Live staff session** — `isStaffActive()`, otherwise `503 no_active_staff`.
 
-The lock itself: the tablet page creates a random device ID on first open and keeps it in `localStorage`. `POST /api/signing/tablet/claim` grants the lock when no device holds it, when this device already holds it, or when the holder hasn't been seen for 60 s (`LOCK_STALE_MS`); otherwise `423 locked`. The claim uses a conditional `updateMany` followed by `createMany({ skipDuplicates: true })`, so two devices claiming at the same moment cannot both win. The guard refreshes `lastSeenAt` at most every 10 s. Staff or admin can free it with **Reset Tablet** (`DELETE /api/signing/tablet/lock`, login required).
+The lock itself: the tablet page creates a random device ID on first open and keeps it in `localStorage`. `POST /api/signing/tablet/claim` grants the lock when no device holds it, when this device already holds it, or when the holder hasn't been seen for 60 s (`LOCK_STALE_MS`); otherwise `423 locked`. The claim uses a conditional `updateMany` followed by `createMany({ skipDuplicates: true })`, so two devices claiming at the same moment cannot both win. The guard refreshes `lastSeenAt` at most every 10 s. Staff or admin can free it with **Reset Sign Device** (`DELETE /api/signing/tablet/lock`, login required).
 
-Because the lock goes to whichever device claims it first, someone who opens the page before the real tablet can take it; Reset Tablet is the recovery.
+Because the lock goes to whichever device claims it first, someone who opens the page before the real one can take it; Reset Sign Device is the recovery.
 
 ### 5.2 Only while a Staff member is working
 
@@ -218,7 +218,7 @@ Because the lock goes to whichever device claims it first, someone who opens the
 
 `lastActiveAt` comes from the staff member's own requests, not a heartbeat: `authenticate` calls `touchActivity()` (in `services/auth.service.ts`) after verifying a token, writing at most once a minute per user. An open dashboard polls `/api/transactions` every 5 s and the Release dialog polls the session every 200 ms, so a staff member who is logged in stays marked active, including while they stand back and watch the claimant sign. Logging in sets the marker; `POST /api/auth/logout` clears it, so the tablet goes inactive within the 10-second cache window.
 
-The tablet shows "Tablet Already in Use" for `423` and "Signature Pad Inactive — Staff login required" for `503`, retrying every 3 seconds until both conditions hold again.
+The sign device shows "Device Already in Use" for `423` and "Signature Pad Inactive — Staff login required" for `503`, retrying every 3 seconds until both conditions hold again.
 
 ### 5.3 Abandoned sessions
 

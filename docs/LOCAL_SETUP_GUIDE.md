@@ -331,7 +331,7 @@ You should see the RTAMS login page.
 3. **View Students**: Open the menu (top left) → Students — you should see the seeded students and the total count
 4. **Login as Staff**: Log out and try `staff1` / `staff123`, create a request, then start processing it
 5. **Sign as Admin**: Log back in as admin and sign the request
-6. **Try the signing tablet**: Open `http://localhost:5173/sign` in another browser window (a staff account must be logged in and active), then release the request as staff
+6. **Try the sign device**: Open `http://localhost:5173/sign` in another browser window (a staff account must be logged in and active), then release the request as staff
 7. **Export a logbook**: As admin, open Reports, pick today's date and download the ARTA and BUP logbooks
 
 For how these pieces work, see [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).

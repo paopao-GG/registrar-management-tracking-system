@@ -16,17 +16,17 @@
 - Generate reports and export the ARTA and BUP logbooks
 - Manage staff accounts (add, edit, deactivate, reset password)
 - View audit logs
-- Reset the signing tablet
+- Reset the sign device
 
 ### Staff
 - Encode new requests for students and alumni
 - Start processing requests, one at a time or in bulk
 - Release documents, including releasing several requests to one claimant with one signature
 - Import the student roster from the request form
-- Reset the signing tablet
+- Reset the sign device
 
 ### Claimant (no account)
-- Signs on the signing tablet to acknowledge receipt, after agreeing to the Data Privacy consent
+- Signs on the sign device to acknowledge receipt, after agreeing to the Data Privacy consent
 
 ---
 
@@ -127,16 +127,16 @@ The Reviewed/Signed By column is not shown on the dashboards; it appears in the 
 | Pending | Staff saves a new request |
 | Processing | Staff clicks Start Processing |
 | Ready for Release | Registrar (Admin) signs |
-| Released | Staff confirms the claimant's tablet signature |
+| Released | Staff confirms the claimant's signature |
 
 ### Release flow
 1. Staff enters the claimant's name (the dialog suggests the students' names).
-2. Staff clicks **Sign on Tablet**. The tablet shows the claimant's name and, for a bulk release, the number of documents and the students they are for.
+2. Staff clicks **Sign on Tablet**. The sign device shows the claimant's name and, for a bulk release, the number of documents and the students they are for.
 3. Staff sees a live preview while the claimant signs.
-4. When the claimant finishes, staff clicks **Confirm Release**. A signing left unconfirmed for 10 minutes ends by itself, and the tablet returns to waiting.
+4. When the claimant finishes, staff clicks **Confirm Release**. A signing left unconfirmed for 10 minutes ends by itself, and the sign device returns to waiting.
 
-### Reset Tablet
-A button at the top of the dashboard frees the signing tablet so the sign page can be opened on a different device.
+### Reset Sign Device
+A button at the top of the dashboard frees the sign-device lock so the sign page can be opened on a different device.
 
 ---
 
@@ -145,23 +145,23 @@ A button at the top of the dashboard frees the signing tablet so the sign page c
 - The same summary cards and transaction table as the Staff Dashboard, covering requests from **all staff**.
 - **Filters, in order:** Date range as From and To (both default to today), Status, Program, Year.
 - **Actions:** Sign, for Processing requests. Selecting rows enables **Sign (n)** for bulk signing.
-- Reset Tablet button.
+- Reset Sign Device button.
 
 ---
 
-## 7. Signing Tablet (`/sign`)
+## 7. Sign Device (`/sign`)
 
 - Shows "Ready for Signature" until staff sends a release.
 - Shows the claimant's name, a signature pad and a **consent checkbox** below the pad: *"I agree to the capture and storage of my signature as proof of document release, and I consent to the processing of my personal information in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173)."*
 - **Done** stays disabled until the box is ticked. The box resets for each claimant.
-- After Done, the tablet shows "Signature Submitted" until staff confirms, then "Signature Confirmed".
+- After Done, the sign device shows "Signature Submitted" until staff confirms, then "Signature Confirmed".
 
 **Security rules**
 
-The tablet never logs in. Two conditions must both hold, and the server enforces both, so the page cannot be bypassed by calling the API directly.
+The sign device never logs in. Two conditions must both hold, and the server enforces both, so the page cannot be bypassed by calling the API directly.
 
-- **One device only.** The first device to open the sign page registers itself as the signing tablet. Another device opening the same URL shows "Tablet Already in Use". Refreshing or reconnecting on the registered device keeps it. If that device is closed for about a minute another may take over, or staff and admin can press **Reset Tablet** on their dashboard, for example when the tablet is replaced or its browser data was cleared.
-- **A Staff member must be signed in.** While no staff member is working in RTAMS the page shows "Signature Pad Inactive — Staff login required", and it returns to the waiting screen within a few seconds of a staff member signing in. Staff stay counted as working while their dashboard is open, and logging out makes the tablet inactive right away.
+- **One device only.** The first device to open the sign page registers itself as the sign device. Another device opening the same URL shows "Device Already in Use". Refreshing or reconnecting on the registered device keeps it. If that device is closed for about a minute another may take over, or staff and admin can press **Reset Sign Device** on their dashboard, for example when the device is replaced or its browser data was cleared.
+- **A Staff member must be signed in.** While no staff member is working in RTAMS the page shows "Signature Pad Inactive — Staff login required", and it returns to the waiting screen within a few seconds of a staff member signing in. Staff stay counted as working while their dashboard is open, and logging out makes the sign device inactive right away.
 - **Admin does not activate it.** An admin cannot release documents, so an admin session alone leaves the page inactive.
 
 ---
@@ -235,5 +235,5 @@ The tablet never logs in. Two conditions must both hold, and the server enforces
 2. **Encodes a request** → selects a student (or adds a not-enrolled student or an alumni requester), sets document counts, saves → **Pending**.
 3. **Starts processing** → one request or several at once → **Processing**.
 4. **Registrar signs** → one request or several at once → **Ready for Release**, duration recorded.
-5. **Claimant arrives** → staff selects one or more ready requests, enters the claimant's name and sends to the tablet → the claimant consents and signs → staff confirms → **Released**.
+5. **Claimant arrives** → staff selects one or more ready requests, enters the claimant's name and sends to the sign device → the claimant consents and signs → staff confirms → **Released**.
 6. **Reports** → Admin downloads the ARTA and BUP logbooks for any date range.

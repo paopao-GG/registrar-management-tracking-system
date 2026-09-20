@@ -187,8 +187,8 @@ From the dashboard:
 1. Open the menu → **Students** → verify the sample students and the total count appear
 2. Log in as staff → create a request → **Start Processing**
 3. Log in as admin → **Sign** the request
-4. Open `<your-deployment-url>/sign` on the signing tablet while a staff account is logged in → release the request as staff → verify it becomes **Released**
-5. Open the same `/sign` URL on a second device → it should say **Tablet Already in Use**
+4. Open `<your-deployment-url>/sign` on the sign device while a staff account is logged in → release the request as staff → verify it becomes **Released**
+5. Open the same `/sign` URL on a second device → it should say **Device Already in Use**
 6. As admin, open **Reports** → download both the **ARTA-Logbook** and **BUP-Logbook** exports and open them in Excel
 
 If any of these fail, check the **Troubleshooting** section.
@@ -256,13 +256,13 @@ Supabase database is paused (free tier auto-pauses after inactivity). Open the S
 
 `rtms/api/index.mjs` must send `response.rawPayload` (bytes), not `response.body` (text). Sending the body as text corrupts binary files.
 
-### The signing tablet says "Signature Pad Inactive"
+### The sign device says "Signature Pad Inactive"
 
-No staff member is signed in to RTAMS. Log in as staff on the office PC and leave the dashboard open; the tablet becomes available within a few seconds. An admin session does not activate it.
+No staff member is signed in to RTAMS. Log in as staff on the office PC and leave the dashboard open; the sign device becomes available within a few seconds. An admin session does not activate it.
 
-### The signing tablet says "Tablet Already in Use"
+### The sign device says "Device Already in Use"
 
-The sign page is open on another device, or the tablet's browser data was cleared. Close the other page and wait about a minute, or click **Reset Tablet** on the staff or admin dashboard.
+The sign page is open on another device, or the device's browser data was cleared. Close the other page and wait about a minute, or click **Reset Sign Device** on the staff or admin dashboard.
 
 ### Cold start is slow (3–5 seconds on first request)
 

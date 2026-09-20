@@ -51,7 +51,7 @@ Requested in [v2.md](v2.md). Design details are in [TECHNICAL_DESIGN.md](TECHNIC
 # sign page
 
 - Data Privacy Act consent checkbox required before Done
-- Usable on one device at a time (Reset Tablet button on the dashboards)
+- Usable on one device at a time (Reset Sign Device button on the dashboards)
 - Only available while a staff member is active
 
 # data
