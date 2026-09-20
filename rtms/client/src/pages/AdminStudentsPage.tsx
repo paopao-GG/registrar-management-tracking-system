@@ -178,14 +178,10 @@ export function AdminStudentsPage() {
             <EmptyState
               icon={filtered ? Search : GraduationCap}
               title={filtered ? 'No students match your filters' : 'No students yet'}
-              hint={filtered ? 'Try a different name, number, or program.' : 'Import a roster to get started.'}
-              action={
-                !filtered && (
-                  <Button size="sm" onClick={() => setImportOpen(true)}>
-                    <Upload className="h-4 w-4" />
-                    Import roster
-                  </Button>
-                )
+              hint={
+                filtered
+                  ? 'Try a different name, number, or program.'
+                  : 'Use Import CSV/XLSX above to add students.'
               }
             />
           )}
