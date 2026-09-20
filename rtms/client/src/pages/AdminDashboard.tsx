@@ -13,6 +13,7 @@ import { LiveIndicator, StatTiles } from '@/components/dashboard/StatTiles';
 import { ProgramYearFilters, programYearParams } from '@/components/dashboard/ProgramYearFilters';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
+import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { Input } from '@/components/ui/input';
 import { formatPeriod, getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
@@ -108,6 +109,7 @@ export function AdminDashboard() {
           endDate: rangeEnd || undefined,
         })}
         title="Admin Dashboard"
+        actions={<ResetTabletButton />}
       />
 
       <StatTiles {...stats} isToday={isToday} loading={!loaded} />

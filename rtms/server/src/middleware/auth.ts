@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken, TokenPayload } from '../utils/jwt.js';
+import { touchActivity } from '../services/auth.service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -16,6 +17,9 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   try {
     const token = header.slice(7);
     request.user = verifyToken(token);
+
+    // Keeps the signing tablet available while this user works.
+    touchActivity(request.user.id);
   } catch {
     return reply.status(401).send({ error: 'Invalid or expired token' });
   }

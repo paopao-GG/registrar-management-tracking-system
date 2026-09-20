@@ -19,6 +19,7 @@ import {
 } from '@/components/transactions/TransactionTable';
 import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
 import { StartProcessingDialog } from '@/components/transactions/StartProcessingDialog';
+import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
 import { useAuth } from '@/lib/auth';
 import {
   formatPeriod,
@@ -206,6 +207,7 @@ export function StaffDashboard() {
       <PageHeader
         eyebrow={formatPeriod(period)}
         title={`Good day, ${user?.name?.split(' ')[0] ?? 'there'}`}
+        actions={<ResetTabletButton />}
       />
 
       <StatTiles

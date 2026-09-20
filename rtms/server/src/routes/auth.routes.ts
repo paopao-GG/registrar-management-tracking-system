@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { login } from '../services/auth.service.js';
+import { clearActivity, login } from '../services/auth.service.js';
+import { verifyToken } from '../utils/jwt.js';
 import { loginSchema } from '@rtams/shared';
 
 export async function authRoutes(app: FastifyInstance) {
@@ -17,7 +18,18 @@ export async function authRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/api/auth/logout', async () => {
+  app.post('/api/auth/logout', async (request) => {
+    const header = request.headers.authorization;
+
+    if (header?.startsWith('Bearer ')) {
+      try {
+        const user = verifyToken(header.slice(7));
+        await clearActivity(user.id);
+      } catch {
+        // Expired or invalid token: nothing to clear.
+      }
+    }
+
     return { message: 'Logged out' };
   });
 }

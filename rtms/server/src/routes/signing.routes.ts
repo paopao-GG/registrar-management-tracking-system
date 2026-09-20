@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'node:crypto';
 import { prisma } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
@@ -6,10 +6,91 @@ import { requireStaff } from '../middleware/roles.js';
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
 
+// A tablet that stops polling for this long loses its lock.
+const LOCK_STALE_MS = 60 * 1000;
+// Throttle lock heartbeat writes; the tablet polls every 500 ms.
+const LOCK_TOUCH_MS = 10 * 1000;
+// A staff member must have used the app within this window.
+const STAFF_ACTIVE_MS = 3 * 60 * 1000;
+const STAFF_CHECK_CACHE_MS = 10 * 1000;
+
+const LOCK_ID = 'tablet';
+const DEVICE_HEADER = 'x-tablet-device';
 const MAX_SESSION_TRANSACTIONS = 200;
 
 function isExpired(createdAt: Date) {
   return Date.now() - createdAt.getTime() > SESSION_TIMEOUT_MS;
+}
+
+function getDeviceId(request: FastifyRequest) {
+  const value = request.headers[DEVICE_HEADER];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+let staffCheck = { at: 0, active: false };
+
+/*
+ * Whether a staff member is currently working. `lastActiveAt`
+ * is stamped by their own authenticated requests (see
+ * auth.service.ts) and cleared when they log out.
+ *
+ * Only the staff role counts: an admin cannot release documents,
+ * so an admin session does not activate the tablet.
+ */
+async function isStaffActive() {
+  const now = Date.now();
+
+  if (now - staffCheck.at < STAFF_CHECK_CACHE_MS) {
+    return staffCheck.active;
+  }
+
+  const activeStaff = await prisma.user.count({
+    where: {
+      role: 'staff',
+      status: 'active',
+      lastActiveAt: { gte: new Date(now - STAFF_ACTIVE_MS) },
+    },
+  });
+
+  staffCheck = { at: now, active: activeStaff > 0 };
+  return staffCheck.active;
+}
+
+/*
+ * Guard for every tablet endpoint:
+ * - only the device holding the lock may use it;
+ * - only while a staff member is active.
+ */
+async function requireTabletDevice(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const deviceId = getDeviceId(request);
+
+  const lock = await prisma.tabletLock.findUnique({
+    where: { id: LOCK_ID },
+  });
+
+  if (!deviceId || !lock || lock.deviceId !== deviceId) {
+    return reply.status(423).send({
+      error: 'This device is not the registered signing tablet.',
+      reason: 'not_claimed',
+    });
+  }
+
+  if (Date.now() - lock.lastSeenAt.getTime() > LOCK_TOUCH_MS) {
+    await prisma.tabletLock.update({
+      where: { id: LOCK_ID },
+      data: { lastSeenAt: new Date() },
+    });
+  }
+
+  if (!(await isStaffActive())) {
+    return reply.status(503).send({
+      error: 'Signing is unavailable while no staff member is active.',
+      reason: 'no_active_staff',
+    });
+  }
 }
 
 function sessionTransactionIds(session: {
@@ -114,13 +195,13 @@ export async function signingRoutes(app: FastifyInstance) {
         });
 
       /*
-       * Expire old pending sessions.
+       * Expire old sessions. A signed one that nobody confirmed
+       * expires too, so an abandoned signing does not block the
+       * tablet for good. Its signature is already saved on the
+       * transactions either way.
        */
       for (const session of existingSessions) {
-        if (
-          session.status === 'pending' &&
-          isExpired(session.createdAt)
-        ) {
+        if (isExpired(session.createdAt)) {
           await prisma.signingSession.update({
             where: { id: session.id },
             data: {
@@ -137,12 +218,7 @@ export async function signingRoutes(app: FastifyInstance) {
        * has not confirmed it yet.
        */
       const activeSession = existingSessions.find(
-        (session) =>
-          session.status === 'signed' ||
-          (
-            session.status === 'pending' &&
-            !isExpired(session.createdAt)
-          )
+        (session) => !isExpired(session.createdAt)
       );
 
       if (activeSession) {
@@ -286,10 +362,86 @@ export async function signingRoutes(app: FastifyInstance) {
 
   /*
    * TABLET:
+   * Claim the signing tablet slot for this device.
+   *
+   * Succeeds when no device holds the lock, when this device
+   * already holds it, or when the holder stopped polling.
+   */
+  app.post(
+    '/api/signing/tablet/claim',
+    async (request, reply) => {
+      const deviceId = getDeviceId(request);
+
+      if (!deviceId || deviceId.length > 100) {
+        return reply.status(400).send({
+          error: 'Device ID is required',
+        });
+      }
+
+      const staleBefore = new Date(Date.now() - LOCK_STALE_MS);
+
+      const taken = await prisma.tabletLock.updateMany({
+        where: {
+          id: LOCK_ID,
+          OR: [
+            { deviceId },
+            { lastSeenAt: { lt: staleBefore } },
+          ],
+        },
+        data: {
+          deviceId,
+          lastSeenAt: new Date(),
+        },
+      });
+
+      if (taken.count > 0) {
+        return { claimed: true };
+      }
+
+      // No lock yet: create it, unless another device just did.
+      const created = await prisma.tabletLock.createMany({
+        data: {
+          id: LOCK_ID,
+          deviceId,
+          lastSeenAt: new Date(),
+        },
+        skipDuplicates: true,
+      });
+
+      if (created.count > 0) {
+        return { claimed: true };
+      }
+
+      return reply.status(423).send({
+        error: 'The signing page is already open on another device.',
+        reason: 'locked',
+      });
+    }
+  );
+
+  /*
+   * STAFF / ADMIN:
+   * Release the tablet lock so another device can claim it.
+   */
+  app.delete(
+    '/api/signing/tablet/lock',
+    { preHandler: authenticate },
+    async () => {
+      await prisma.tabletLock.deleteMany({
+        where: { id: LOCK_ID },
+      });
+
+      return { message: 'Tablet lock reset' };
+    }
+  );
+
+  /*
+   * TABLET:
    * Find the current active signing session.
    *
-   * This endpoint is public because the tablet does not
-   * use a staff login.
+   * This endpoint does not use a staff login; it is
+   * restricted to the device holding the tablet lock,
+   * and only while a staff member is active.
    *
    * IMPORTANT:
    * Both "pending" and "signed" sessions are returned.
@@ -306,6 +458,7 @@ export async function signingRoutes(app: FastifyInstance) {
    */
   app.get(
     '/api/signing/tablet/current',
+    { preHandler: requireTabletDevice },
     async (_request, reply) => {
       const session =
         await prisma.signingSession.findFirst({
@@ -326,15 +479,11 @@ export async function signingRoutes(app: FastifyInstance) {
       }
 
       /*
-       * Only expire sessions that are still pending.
-       *
-       * A signed session has already received a signature
-       * and should remain available for staff confirmation.
+       * A signed session stays available for staff confirmation,
+       * but not forever: once it expires the tablet goes back to
+       * waiting instead of showing a signing nobody confirmed.
        */
-      if (
-        session.status === 'pending' &&
-        isExpired(session.createdAt)
-      ) {
+      if (isExpired(session.createdAt)) {
         await prisma.signingSession.update({
           where: { id: session.id },
           data: {
@@ -388,6 +537,7 @@ export async function signingRoutes(app: FastifyInstance) {
    */
   app.post(
     '/api/signing/sessions/:token/progress',
+    { preHandler: requireTabletDevice },
     async (request, reply) => {
       const { token } = request.params as {
         token: string;
@@ -456,6 +606,7 @@ export async function signingRoutes(app: FastifyInstance) {
    */
   app.post(
     '/api/signing/sessions/:token/sign',
+    { preHandler: requireTabletDevice },
     async (request, reply) => {
       const { token } = request.params as {
         token: string;
@@ -565,6 +716,7 @@ export async function signingRoutes(app: FastifyInstance) {
    */
   app.get(
     '/api/signing/tablet/status/:token',
+    { preHandler: requireTabletDevice },
     async (request, reply) => {
       const { token } = request.params as {
         token: string;
