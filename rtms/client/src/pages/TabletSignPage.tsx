@@ -121,6 +121,10 @@ export function TabletSignPage() {
 
     let mounted = true;
 
+    // One check at a time: on a slow link these would otherwise pile up
+    // and land out of order, each overwriting the last one's answer.
+    let checking = false;
+
     const claimDevice = async () => {
       try {
         await api.post('/signing/tablet/claim', null, tablet);
@@ -135,6 +139,9 @@ export function TabletSignPage() {
     };
 
     const checkForSession = async () => {
+      if (checking) return;
+      checking = true;
+
       try {
         const response = await api.get(
           '/signing/tablet/current',
@@ -209,6 +216,8 @@ export function TabletSignPage() {
         setError(describeError(err));
 
         setLoading(false);
+      } finally {
+        checking = false;
       }
     };
 
@@ -248,26 +257,42 @@ export function TabletSignPage() {
       return;
     }
 
+    /*
+     * One preview at a time, and only when the drawing moved on. A slow
+     * link would otherwise stack these up until they arrive out of order,
+     * and each one carries a whole PNG.
+     */
+    let inFlight = false;
+    let lastSent: string | null = null;
+
     const sendProgress = async () => {
       const pad = sigRef.current;
 
-      if (!pad) return;
+      if (!pad || inFlight) return;
+
+      const signature = pad.isEmpty()
+        ? ''
+        : pad.getDataURL();
+
+      if (signature === lastSent) return;
+
+      inFlight = true;
 
       try {
-        const signature = pad.isEmpty()
-          ? ''
-          : pad.getDataURL();
-
         await api.post(
           `/signing/sessions/${session.token}/progress`,
           { signature },
           tablet
         );
+
+        lastSent = signature;
       } catch (err) {
         console.error(
           'Failed to send signature progress',
           err
         );
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -313,8 +338,22 @@ export function TabletSignPage() {
     if (!submitted || !session) return;
 
     let mounted = true;
+    let checking = false;
+
+    const endWaiting = () => {
+      setSubmitted(false);
+      setConfirmed(false);
+      setSession(null);
+
+      setError(
+        'The signing session has ended.'
+      );
+    };
 
     const checkConfirmation = async () => {
+      if (checking) return;
+      checking = true;
+
       try {
         const response = await api.get(
           `/signing/tablet/status/${session.token}`,
@@ -335,19 +374,21 @@ export function TabletSignPage() {
           status === 'cancelled' ||
           status === 'expired'
         ) {
-          setSubmitted(false);
-          setConfirmed(false);
-          setSession(null);
-
-          setError(
-            'The signing session has ended.'
-          );
+          endWaiting();
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(
           'Failed to check signature confirmation',
           err
         );
+
+        // A session RTAMS no longer has is never coming back, so stop
+        // waiting on it. Anything else is worth another try.
+        if (mounted && err.response?.status === 404) {
+          endWaiting();
+        }
+      } finally {
+        checking = false;
       }
     };
 
@@ -422,6 +463,20 @@ export function TabletSignPage() {
         'Failed to submit signature',
         err
       );
+
+      const status = err.response?.status;
+
+      /*
+       * RTAMS refused the signature because the session is over, which is
+       * what it says when a drop lasted long enough for the signing to be
+       * given up on. Drop back to waiting so the page is ready for the
+       * next claimant instead of offering a pad that cannot submit; a
+       * request that simply never arrived keeps the pad and its drawing.
+       */
+      if (status === 400 || status === 404 || status === 409) {
+        setSession(null);
+        setSubmitted(false);
+      }
 
       setError(
         err.response?.data?.error ||
