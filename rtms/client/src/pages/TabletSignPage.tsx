@@ -57,6 +57,24 @@ function getDeviceId() {
   }
 }
 
+/*
+ * Axios reports no response at all when the request never reached
+ * RTAMS, so keep "cannot connect" for that case only. A reply that
+ * carries a status is a different problem, and saying so is what
+ * makes it findable.
+ */
+function describeError(err: any) {
+  if (err.response?.data?.error) {
+    return err.response.data.error;
+  }
+
+  if (err.response) {
+    return `RTAMS returned an error (${err.response.status}).`;
+  }
+
+  return 'Unable to connect to RTAMS.';
+}
+
 export function TabletSignPage() {
   const [deviceId] = useState(getDeviceId);
   const toast = useToast();
@@ -159,7 +177,10 @@ export function TabletSignPage() {
 
             if (!mounted) return;
 
-            if (!claimed) {
+            if (claimed) {
+              // The next check, a moment from now, picks up the session.
+              setError(null);
+            } else {
               setAvailability('locked');
               setSession(null);
               setLoading(false);
@@ -167,7 +188,7 @@ export function TabletSignPage() {
           } catch (claimErr) {
             console.error('Failed to claim tablet', claimErr);
             if (!mounted) return;
-            setError('Unable to connect to RTAMS.');
+            setError(describeError(claimErr));
             setLoading(false);
           }
           return;
@@ -185,11 +206,7 @@ export function TabletSignPage() {
           err
         );
 
-        // Show the server's reason when there is one; no response means a network failure.
-        setError(
-          err.response?.data?.error ||
-            'Unable to connect to RTAMS.'
-        );
+        setError(describeError(err));
 
         setLoading(false);
       }

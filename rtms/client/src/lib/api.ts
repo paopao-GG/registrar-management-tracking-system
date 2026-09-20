@@ -9,6 +9,21 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  /*
+   * Axios labels a POST, PUT or PATCH carrying no body as form-urlencoded,
+   * a media type Fastify has no parser for, so the request comes back 415
+   * before it ever reaches the route. Send empty JSON instead, which is what
+   * the endpoints that take no body already expect.
+   */
+  const method = config.method?.toLowerCase();
+  if (
+    config.data == null &&
+    (method === 'post' || method === 'put' || method === 'patch')
+  ) {
+    config.data = {};
+  }
+
   return config;
 });
 

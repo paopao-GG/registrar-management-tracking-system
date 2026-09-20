@@ -10,6 +10,8 @@ export default defineConfig({
     },
   },
   server: {
+    // The signing tablet is a second device, so it needs the LAN address.
+    host: true,
     proxy: {
       '/api': 'http://localhost:3001',
     },

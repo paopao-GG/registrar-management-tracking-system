@@ -15,12 +15,15 @@ export async function buildApp() {
 
   const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
   await app.register(cors, {
+    /*
+     * An unlisted origin is answered without the CORS headers, which is what
+     * makes the browser block a genuine cross-origin call. Rejecting it with an
+     * error instead would turn it into a 500, and browsers send an Origin on
+     * same-origin POSTs too: the tablet reaching RTAMS on any host other than
+     * CORS_ORIGIN (its LAN address, say) failed its own claim that way.
+     */
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        cb(null, true);
-      } else {
-        cb(new Error('Not allowed by CORS'), false);
-      }
+      cb(null, !origin || allowedOrigins.includes(origin));
     },
   });
 
