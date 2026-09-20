@@ -6,11 +6,11 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentCounter } from './DocumentCounter';
 import { StudentAutocomplete } from '@/components/students/StudentAutocomplete';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
-import { DOCUMENT_TYPES, abbreviateCourse } from '@rtams/shared';
+import { DOCUMENT_TYPES, abbreviateCourse, formatYearLevel } from '@rtams/shared';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
-import { GraduationCap, Save } from 'lucide-react';
+import { GraduationCap, Save, UserPlus } from 'lucide-react';
 
 interface Props {
   onCreated: () => void;
@@ -25,6 +25,7 @@ export function NewRequestForm({ onCreated }: Props) {
   const [others, setOthers] = useState('');
   const [othersCount, setOthersCount] = useState(0);
   const [alumniOpen, setAlumniOpen] = useState(false);
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
   // Remounts the search box so it clears after a save.
   const [studentFieldKey, setStudentFieldKey] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -87,17 +88,28 @@ export function NewRequestForm({ onCreated }: Props) {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-medium">Student Name</label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAlumniOpen(true)}
-                >
-                  <GraduationCap className="h-4 w-4" />
-                  Alumni
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddStudentOpen(true)}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Add Student
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAlumniOpen(true)}
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                    Alumni
+                  </Button>
+                </div>
               </div>
               <StudentAutocomplete
                 key={studentFieldKey}
@@ -118,9 +130,9 @@ export function NewRequestForm({ onCreated }: Props) {
                   <label className="text-sm font-medium">Program &amp; Year</label>
                   <Input
                     value={`${abbreviateCourse(selectedStudent.course)} - ${
-                      selectedStudent.isAlumni
-                        ? 'Alumni'
-                        : `Year ${selectedStudent.yearLevel}`
+                      selectedStudent.yearLevel > 0
+                        ? `Year ${selectedStudent.yearLevel}`
+                        : formatYearLevel(selectedStudent.yearLevel)
                     }`}
                     disabled
                   />
@@ -171,6 +183,12 @@ export function NewRequestForm({ onCreated }: Props) {
         mode="alumni"
         onClose={() => setAlumniOpen(false)}
         onCreated={(alumni) => setSelectedStudent(alumni)}
+      />
+      <AddStudentDialog
+        open={addStudentOpen}
+        mode="notEnrolled"
+        onClose={() => setAddStudentOpen(false)}
+        onCreated={(student) => setSelectedStudent(student)}
       />
     </>
   );

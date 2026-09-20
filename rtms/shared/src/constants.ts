@@ -108,10 +108,18 @@ export function abbreviateCourse(course: string): string {
 }
 
 /**
- * Year level 0 marks an alumni record.
+ * Year level for a student outside the current roster.
+ */
+export const NOT_ENROLLED_YEAR_LEVEL = -1;
+
+/**
+ * Year level 0 marks an alumni record; NOT_ENROLLED_YEAR_LEVEL marks
+ * a student who is not enrolled this semester.
  */
 export function formatYearLevel(yearLevel: number): string {
-  return yearLevel === 0 ? 'Alumni' : String(yearLevel);
+  if (yearLevel === 0) return 'Alumni';
+  if (yearLevel === NOT_ENROLLED_YEAR_LEVEL) return 'Not Enrolled';
+  return String(yearLevel);
 }
 
 export function formatCourseYear(course: string, yearLevel: number): string {

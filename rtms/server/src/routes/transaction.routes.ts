@@ -54,7 +54,7 @@ export async function transactionRoutes(app: FastifyInstance) {
       endDate: query.endDate,
       search: query.search,
       course: query.course,
-      // Year level 0 is alumni, so parse instead of checking truthiness.
+      // Year level 0 is alumni and -1 is not enrolled, so parse instead of checking truthiness.
       yearLevel:
         query.yearLevel !== undefined && query.yearLevel !== ''
           ? parseInt(query.yearLevel)

@@ -2,7 +2,7 @@ import { Prisma, type Transaction } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { logStatusChange } from './audit.service.js';
 import { toDocColumns, toApiTransaction } from '../utils/doc-mapper.js';
-import { formatStudentName, phDayRange } from '@rtams/shared';
+import { currentYearLevel, formatStudentName, phDayRange } from '@rtams/shared';
 
 interface CreateInput {
   studentId: string;
@@ -28,7 +28,7 @@ export async function createTransaction(input: CreateInput) {
       studentId: student.id,
       studentName: formatStudentName(student),
       studentCourse: student.course,
-      studentYearLevel: student.yearLevel,
+      studentYearLevel: currentYearLevel(student),
       ...toDocColumns(input.requestedDocuments),
       others: input.others,
       othersCount: input.othersCount,

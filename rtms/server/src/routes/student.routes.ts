@@ -5,8 +5,10 @@ import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import {
   COURSE_ALIASES,
+  NOT_ENROLLED_YEAR_LEVEL,
   createStudentSchema,
   bulkImportSchema,
+  currentYearLevel,
   formatStudentName,
   normalizeCourse,
   type BulkImportResult,
@@ -72,7 +74,7 @@ function toApiStudent(s: any) {
     sex: s.sex,
     contactNumber: s.contactNumber,
     course: s.course,
-    yearLevel: s.yearLevel,
+    yearLevel: currentYearLevel(s),
     isAlumni: s.isAlumni,
     name: formatStudentName(s),
     createdAt: s.createdAt,
@@ -83,14 +85,16 @@ export async function studentRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);
 
   /*
-   * Get current active students only.
+   * Search students for the request form.
+   *
+   * Students missing from the current roster are included
+   * as Not Enrolled, after enrolled students and alumni.
    */
   app.get('/api/students', async (request) => {
     const { q } = request.query as { q?: string };
     const term = q?.trim();
 
     const where = {
-      active: true,
       ...(term
         ? {
             OR: [
@@ -121,6 +125,7 @@ export async function studentRoutes(app: FastifyInstance) {
       where,
       take: 10,
       orderBy: [
+        { active: 'desc' },
         { lastName: 'asc' },
         { firstName: 'asc' },
       ],
@@ -282,6 +287,13 @@ export async function studentRoutes(app: FastifyInstance) {
       });
     }
 
+    /*
+     * A not-enrolled student is kept out of the current roster,
+     * like a student missing from the latest import.
+     */
+    const notEnrolled =
+      !parsed.data.isAlumni && parsed.data.notEnrolled === true;
+
     try {
       const student = await prisma.student.create({
         data: {
@@ -301,9 +313,11 @@ export async function studentRoutes(app: FastifyInstance) {
           // Year level 0 marks an alumni record.
           yearLevel: parsed.data.isAlumni
             ? 0
-            : parsed.data.yearLevel!,
+            : notEnrolled
+              ? NOT_ENROLLED_YEAR_LEVEL
+              : parsed.data.yearLevel!,
           isAlumni: parsed.data.isAlumni ?? false,
-          active: true,
+          active: !notEnrolled,
         },
       });
 

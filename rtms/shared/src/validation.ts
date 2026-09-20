@@ -72,10 +72,11 @@ export const createStudentSchema = z
     contactNumber: optionalTrimmedString,
     course: z.string().min(1, 'Course is required'),
     isAlumni: z.boolean().optional(),
+    notEnrolled: z.boolean().optional(),
     yearLevel: z.number().int().min(1).max(4).optional(),
   })
   .superRefine((val, ctx) => {
-    if (!val.isAlumni && val.yearLevel === undefined) {
+    if (!val.isAlumni && !val.notEnrolled && val.yearLevel === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['yearLevel'],

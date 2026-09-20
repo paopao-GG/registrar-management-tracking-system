@@ -6,17 +6,30 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
-import { COURSES, YEAR_LEVELS, abbreviateCourse } from '@rtams/shared';
+import {
+  COURSES,
+  NOT_ENROLLED_YEAR_LEVEL,
+  YEAR_LEVELS,
+  abbreviateCourse,
+  formatYearLevel,
+} from '@rtams/shared';
 
 interface Props {
   open: boolean;
-  mode?: 'student' | 'alumni';
+  // notEnrolled: a student from the request form who is not in the current roster.
+  mode?: 'student' | 'alumni' | 'notEnrolled';
   onClose: () => void;
   onCreated: (student: any) => void;
 }
 
 export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }: Props) {
   const isAlumni = mode === 'alumni';
+  const isNotEnrolled = mode === 'notEnrolled';
+  const title = isAlumni
+    ? 'Add Alumni Request'
+    : isNotEnrolled
+      ? 'Add Student Request'
+      : 'Add New Student';
 
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -52,6 +65,8 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
       const payload: Record<string, unknown> = { lastName, firstName, sex, course };
       if (isAlumni) {
         payload.isAlumni = true;
+      } else if (isNotEnrolled) {
+        payload.notEnrolled = true;
       } else {
         payload.yearLevel = yearLevel;
       }
@@ -65,7 +80,12 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
       reset();
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? `Failed to add ${isAlumni ? 'alumni' : 'student'}`);
+      if (isNotEnrolled && err?.response?.status === 409) {
+        // Everyone on file, enrolled or not, is found by the Student Name search.
+        setError('This student number is already on file. Search for it in Student Name instead.');
+      } else {
+        setError(err?.response?.data?.error ?? `Failed to add ${isAlumni ? 'alumni' : 'student'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -75,7 +95,7 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>{isAlumni ? 'Add Alumni Request' : 'Add New Student'}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -127,14 +147,18 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
           {!isAlumni && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Year Level</label>
-              <NativeSelect
-                value={yearLevel}
-                onChange={(e) => setYearLevel(Number(e.target.value))}
-              >
-                {YEAR_LEVELS.map((y: number) => (
-                  <option key={y} value={y}>Year {y}</option>
-                ))}
-              </NativeSelect>
+              {isNotEnrolled ? (
+                <Input value={formatYearLevel(NOT_ENROLLED_YEAR_LEVEL)} disabled />
+              ) : (
+                <NativeSelect
+                  value={yearLevel}
+                  onChange={(e) => setYearLevel(Number(e.target.value))}
+                >
+                  {YEAR_LEVELS.map((y: number) => (
+                    <option key={y} value={y}>Year {y}</option>
+                  ))}
+                </NativeSelect>
+              )}
             </div>
           )}
 

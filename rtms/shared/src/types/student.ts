@@ -1,3 +1,5 @@
+import { NOT_ENROLLED_YEAR_LEVEL } from '../constants.js';
+
 export interface IStudent {
   _id: string;
   studentNumber: string;
@@ -24,6 +26,7 @@ export interface CreateStudentDTO {
   course: string;
   yearLevel?: number;
   isAlumni?: boolean;
+  notEnrolled?: boolean;
 }
 
 export interface BulkImportRow {
@@ -56,6 +59,18 @@ export interface BulkImportResult {
   deactivated: number;
   skipped: BulkImportSkipped[];
   failed: BulkImportFailed[];
+}
+
+/**
+ * Year level for the current semester. A student missing from the
+ * current roster is Not Enrolled; their stored year level is kept.
+ */
+export function currentYearLevel(s: {
+  yearLevel: number;
+  active: boolean;
+  isAlumni: boolean;
+}): number {
+  return s.active || s.isAlumni ? s.yearLevel : NOT_ENROLLED_YEAR_LEVEL;
 }
 
 export function formatStudentName(s: {
