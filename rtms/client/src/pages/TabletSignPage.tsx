@@ -340,7 +340,7 @@ export function TabletSignPage() {
           setSession(null);
 
           setError(
-            'The tablet signing session has ended.'
+            'The signing session has ended.'
           );
         }
       } catch (err) {
@@ -446,13 +446,13 @@ export function TabletSignPage() {
    */
   if (availability === 'locked') {
     return (
-      <StatusScreen icon={<Lock className="h-8 w-8" />} tone="warning" title="Tablet Already in Use">
+      <StatusScreen icon={<Lock className="h-8 w-8" />} tone="warning" title="Device Already in Use">
         <p className="text-muted-foreground">
           The RTAMS signature page is already open on another device.
         </p>
         <p className="text-sm text-muted-foreground">
           Close it there, or ask Registrar staff to reset the
-          tablet from their dashboard.
+          sign device from their dashboard.
         </p>
       </StatusScreen>
     );
@@ -486,7 +486,7 @@ export function TabletSignPage() {
           Your signature has been successfully recorded.
         </p>
         <p className="text-sm text-muted-foreground">
-          Please return the tablet to the Registrar staff.
+          Please return the device to the Registrar staff.
         </p>
       </StatusScreen>
     );

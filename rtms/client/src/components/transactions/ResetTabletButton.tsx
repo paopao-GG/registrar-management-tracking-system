@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import { TabletSmartphone } from 'lucide-react';
 
 /*
- * Frees the signing-tablet lock so a different device
+ * Frees the sign-device lock so a different device
  * can open the sign page.
  */
 export function ResetTabletButton() {
@@ -16,10 +16,10 @@ export function ResetTabletButton() {
 
   const handleReset = async () => {
     const confirmed = await confirm({
-      title: 'Reset the signing tablet?',
+      title: 'Reset the sign device?',
       description:
         'The sign page will need to be reopened on the device that should be used for signing.',
-      confirmText: 'Reset tablet',
+      confirmText: 'Reset sign device',
       tone: 'destructive',
     });
 
@@ -29,9 +29,9 @@ export function ResetTabletButton() {
 
     try {
       await api.delete('/signing/tablet/lock');
-      toast.success('Tablet reset', { description: 'Open the sign page on the signing device.' });
+      toast.success('Sign device reset', { description: 'Open the sign page on the signing device.' });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to reset the tablet.');
+      toast.error(err.response?.data?.error || 'Failed to reset the sign device.');
     } finally {
       setLoading(false);
     }
@@ -45,7 +45,7 @@ export function ResetTabletButton() {
       loading={loading}
     >
       {!loading && <TabletSmartphone className="h-4 w-4" />}
-      {loading ? 'Resetting...' : 'Reset Tablet'}
+      {loading ? 'Resetting...' : 'Reset Sign Device'}
     </Button>
   );
 }
