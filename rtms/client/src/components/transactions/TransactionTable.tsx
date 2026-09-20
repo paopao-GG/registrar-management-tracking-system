@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { differenceInCalendarDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,19 @@ interface Props {
   showActions?: boolean;
   showReviewer?: boolean;
   userRole?: string;
+}
+
+/*
+ * Whole days a signed request has been waiting to be claimed.
+ * 0 for anything prepared today or already released.
+ */
+function daysWaiting(t: Transaction) {
+  if (t.status !== 'Ready for Release') return 0;
+
+  return Math.max(
+    0,
+    differenceInCalendarDays(new Date(), new Date(t.preparedAt))
+  );
 }
 
 export const statusVariant = (status: string) => {
@@ -340,6 +354,11 @@ export function TransactionTable({
 
                   <td className="tabular px-3 py-2 whitespace-nowrap font-mono text-xs">
                     {formatDate(t.preparedAt)}
+                    {daysWaiting(t) > 0 && (
+                      <span className="mt-0.5 block font-sans text-[0.7rem] font-medium text-warning">
+                        {daysWaiting(t)}d waiting
+                      </span>
+                    )}
                   </td>
 
                   <td className="px-3 py-2 font-medium">

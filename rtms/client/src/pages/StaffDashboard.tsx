@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, parseISO } from 'date-fns';
 import {
   Card,
   CardContent,
@@ -21,27 +20,40 @@ import {
 import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
 import { StartProcessingDialog } from '@/components/transactions/StartProcessingDialog';
 import { useAuth } from '@/lib/auth';
-import { getPhilippineDate, getYesterdayPhilippineDate } from '@/lib/date';
+import {
+  formatPeriod,
+  getPhilippineDate,
+  getPhilippineDateDaysAgo,
+  getYesterdayPhilippineDate,
+  type DateRange,
+} from '@/lib/date';
 import api from '@/lib/api';
 import { Search } from 'lucide-react';
 
 /*
- * The dashboard always shows a single day. A custom
- * filter without a picked date falls back to today.
+ * Today, yesterday, or a custom range. An empty end of the
+ * range means that side is unbounded, so clearing both shows
+ * every date.
  */
-function getSelectedDay(
+function getDateRange(
   dateFilter: string,
-  customDate: string
-) {
+  rangeStart: string,
+  rangeEnd: string
+): DateRange {
   if (dateFilter === 'yesterday') {
-    return getYesterdayPhilippineDate();
+    const day = getYesterdayPhilippineDate();
+    return { startDate: day, endDate: day };
   }
 
-  if (dateFilter === 'custom' && customDate) {
-    return customDate;
+  if (dateFilter === 'range') {
+    return {
+      startDate: rangeStart || undefined,
+      endDate: rangeEnd || undefined,
+    };
   }
 
-  return getPhilippineDate();
+  const today = getPhilippineDate();
+  return { startDate: today, endDate: today };
 }
 
 export function StaffDashboard() {
@@ -62,6 +74,10 @@ export function StaffDashboard() {
   const [completedCount, setCompletedCount] =
     useState(0);
 
+  // Rows matching the current filters, which may exceed those returned.
+  const [totalMatching, setTotalMatching] =
+    useState(0);
+
   const [releaseTargets, setReleaseTargets] =
     useState<ReleaseTarget[]>([]);
 
@@ -77,7 +93,10 @@ export function StaffDashboard() {
   const [dateFilter, setDateFilter] =
     useState('today');
 
-  const [customDate, setCustomDate] =
+  const [rangeStart, setRangeStart] =
+    useState('');
+
+  const [rangeEnd, setRangeEnd] =
     useState('');
 
   const [searchName, setSearchName] =
@@ -99,22 +118,29 @@ export function StaffDashboard() {
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const day = getSelectedDay(
+    const { startDate, endDate } = getDateRange(
       dateFilter,
-      customDate
+      rangeStart,
+      rangeEnd
     );
 
-    // Status counts cover the day, program and year, not the status or search.
+    // Status counts cover the period, program and year, not the status or search.
     const params: Record<
       string,
       string | number
     > = {
-      startDate: day,
-      endDate: day,
       ...programYearParams(programFilter, yearLevelFilter),
       includeCounts: 1,
       _t: Date.now(),
     };
+
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+
+    // A span can hold far more than one day's requests.
+    if (!startDate || startDate !== endDate) {
+      params.limit = 200;
+    }
 
     if (debouncedSearch) {
       params.search = debouncedSearch;
@@ -132,6 +158,7 @@ export function StaffDashboard() {
       const counts = data.counts ?? {};
 
       setTransactions(data.transactions);
+      setTotalMatching(data.total ?? 0);
       setNewRequestsCount(counts['Pending'] ?? 0);
       setProcessingCount(counts['Processing'] ?? 0);
       setReadyForReleaseCount(counts['Ready for Release'] ?? 0);
@@ -147,7 +174,8 @@ export function StaffDashboard() {
   }, [
     user,
     dateFilter,
-    customDate,
+    rangeStart,
+    rangeEnd,
     statusFilter,
     programFilter,
     yearLevelFilter,
@@ -168,15 +196,15 @@ export function StaffDashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const isToday = dateFilter === 'today' ||
-    (dateFilter === 'custom' && (!customDate || customDate === getPhilippineDate()));
-
-  const selectedDay = getSelectedDay(dateFilter, customDate);
+  const period = getDateRange(dateFilter, rangeStart, rangeEnd);
+  const today = getPhilippineDate();
+  const isToday =
+    period.startDate === today && period.endDate === today;
 
   return (
     <div className="page-enter space-y-6">
       <PageHeader
-        eyebrow={format(parseISO(selectedDay), 'EEEE, MMMM d, yyyy')}
+        eyebrow={formatPeriod(period)}
         title={`Good day, ${user?.name?.split(' ')[0] ?? 'there'}`}
       />
 
@@ -202,7 +230,11 @@ export function StaffDashboard() {
               <LiveIndicator />
             </div>
             <CardDescription>
-              {loaded ? `${transactions.length} shown` : 'Loading transactions…'}
+              {!loaded
+                ? 'Loading transactions…'
+                : totalMatching > transactions.length
+                  ? `${transactions.length} of ${totalMatching} shown — narrow with search`
+                  : `${transactions.length} shown`}
             </CardDescription>
           </div>
 
@@ -213,29 +245,44 @@ export function StaffDashboard() {
               aria-label="Date"
               value={dateFilter}
               onChange={(e) => {
-                setDateFilter(e.target.value);
+                const value = e.target.value;
+                setDateFilter(value);
 
-                if (e.target.value !== 'custom') {
-                  setCustomDate('');
+                if (value === 'range') {
+                  // Open on the past week rather than an empty range.
+                  if (!rangeStart) setRangeStart(getPhilippineDateDaysAgo(6));
+                  if (!rangeEnd) setRangeEnd(getPhilippineDate());
                 }
               }}
               className="md:w-40"
             >
               <option value="today">Today</option>
               <option value="yesterday">Yesterday</option>
-              <option value="custom">Custom Date</option>
+              <option value="range">Date Range</option>
             </NativeSelect>
 
-            {/* Custom Date */}
-            {dateFilter === 'custom' && (
-              <Input
-                type="date"
-                aria-label="Custom date"
-                value={customDate}
-                max={getPhilippineDate()}
-                onChange={(e) => setCustomDate(e.target.value)}
-                className="h-9 w-full md:w-44"
-              />
+            {/* Date Range */}
+            {dateFilter === 'range' && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  aria-label="From date"
+                  value={rangeStart}
+                  max={rangeEnd || getPhilippineDate()}
+                  onChange={(e) => setRangeStart(e.target.value)}
+                  className="h-9 w-full md:w-40"
+                />
+                <span aria-hidden="true" className="text-muted-foreground">–</span>
+                <Input
+                  type="date"
+                  aria-label="To date"
+                  value={rangeEnd}
+                  min={rangeStart || undefined}
+                  max={getPhilippineDate()}
+                  onChange={(e) => setRangeEnd(e.target.value)}
+                  className="h-9 w-full md:w-40"
+                />
+              </div>
             )}
 
             {/* Status Filter */}

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, parseISO } from 'date-fns';
 import {
   Card,
   CardContent,
@@ -15,7 +14,7 @@ import { ProgramYearFilters, programYearParams } from '@/components/dashboard/Pr
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
 import { Input } from '@/components/ui/input';
-import { getPhilippineDate } from '@/lib/date';
+import { formatPeriod, getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
 
 export function AdminDashboard() {
@@ -28,26 +27,37 @@ export function AdminDashboard() {
     completed: 0,
   });
 
-  const [dateFilter, setDateFilter] = useState(getPhilippineDate);
+  // The range defaults to today; either end can be cleared to unbound it.
+  const [rangeStart, setRangeStart] = useState(getPhilippineDate);
+  const [rangeEnd, setRangeEnd] = useState(getPhilippineDate);
   const [statusFilter, setStatusFilter] = useState('');
   const [programFilter, setProgramFilter] = useState('');
   const [yearLevelFilter, setYearLevelFilter] = useState('');
   const [signIds, setSignIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // The dashboard always shows one day; an empty picker means today.
-  const day = dateFilter || getPhilippineDate();
-  const isToday = day === getPhilippineDate();
+  // Rows matching the current filters, which may exceed those returned.
+  const [totalMatching, setTotalMatching] = useState(0);
+
+  const today = getPhilippineDate();
+  const singleDay = !!rangeStart && rangeStart === rangeEnd;
+  const isToday = singleDay && rangeStart === today;
 
   const fetchData = useCallback(async () => {
-    // Status counts cover the day, program and year, not the status filter.
+    // Status counts cover the period, program and year, not the status filter.
     const params: Record<string, string | number> = {
-      startDate: day,
-      endDate: day,
       ...programYearParams(programFilter, yearLevelFilter),
       includeCounts: 1,
       _t: Date.now(),
     };
+
+    if (rangeStart) params.startDate = rangeStart;
+    if (rangeEnd) params.endDate = rangeEnd;
+
+    // A span can hold far more than one day's requests.
+    if (!rangeStart || rangeStart !== rangeEnd) {
+      params.limit = 200;
+    }
 
     if (statusFilter) {
       params.status = statusFilter;
@@ -58,6 +68,7 @@ export function AdminDashboard() {
       const counts = data.counts ?? {};
 
       setTransactions(data.transactions);
+      setTotalMatching(data.total ?? 0);
 
       setStats({
         newRequests: counts['Pending'] ?? 0,
@@ -73,7 +84,7 @@ export function AdminDashboard() {
     } finally {
       setLoaded(true);
     }
-  }, [statusFilter, programFilter, yearLevelFilter, day]);
+  }, [statusFilter, programFilter, yearLevelFilter, rangeStart, rangeEnd]);
 
   // Initial load and refresh whenever filters change.
   useEffect(() => {
@@ -92,7 +103,10 @@ export function AdminDashboard() {
   return (
     <div className="page-enter space-y-6">
       <PageHeader
-        eyebrow={format(parseISO(day), 'EEEE, MMMM d, yyyy')}
+        eyebrow={formatPeriod({
+          startDate: rangeStart || undefined,
+          endDate: rangeEnd || undefined,
+        })}
         title="Admin Dashboard"
       />
 
@@ -107,19 +121,35 @@ export function AdminDashboard() {
               <LiveIndicator />
             </div>
             <CardDescription>
-              {loaded ? `${transactions.length} shown` : 'Loading requests…'}
+              {!loaded
+                ? 'Loading requests…'
+                : totalMatching > transactions.length
+                  ? `${transactions.length} of ${totalMatching} shown`
+                  : `${transactions.length} shown`}
             </CardDescription>
           </div>
 
           <div data-print-hide className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              type="date"
-              aria-label="Date"
-              value={day}
-              max={getPhilippineDate()}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full sm:w-44"
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                aria-label="From date"
+                value={rangeStart}
+                max={rangeEnd || today}
+                onChange={(e) => setRangeStart(e.target.value)}
+                className="w-full sm:w-40"
+              />
+              <span aria-hidden="true" className="text-muted-foreground">–</span>
+              <Input
+                type="date"
+                aria-label="To date"
+                value={rangeEnd}
+                min={rangeStart || undefined}
+                max={today}
+                onChange={(e) => setRangeEnd(e.target.value)}
+                className="w-full sm:w-40"
+              />
+            </div>
 
             <NativeSelect
               aria-label="Status"
