@@ -139,7 +139,7 @@ export function ReportsPage() {
 
       {loading && (
         <Card>
-          <TableSkeleton cols={5} rows={8} className="p-2" />
+          <TableSkeleton cols={6} rows={8} className="p-2" />
         </Card>
       )}
 
@@ -171,20 +171,22 @@ export function ReportsPage() {
               <table className="data-table w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/60">
+                    <th className="px-3 py-2.5 text-left">No.</th>
                     <th className="px-3 py-2.5 text-left">External Client Name</th>
-                    <th className="px-3 py-2.5 text-left">Requested Documents/Services</th>
-                    <th className="px-3 py-2.5 text-left">University Email Address</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 text-left">Contact Number</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 text-left">Date of Transaction</th>
+                    <th className="px-3 py-2.5 text-left">Service Availed</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-left">Client Contact</th>
+                    <th className="px-3 py-2.5 text-left">Client Contact Info (Email Address)</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-left">Day of Service Completion</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
                     <tr key={i} className="border-b border-border/60">
+                      <td className="tabular px-3 py-2.5 font-mono text-xs text-muted-foreground">{i + 1}</td>
                       <td className="px-3 py-2.5 font-medium">{row.clientName}</td>
                       <td className="px-3 py-2.5">{row.requestedDocuments}</td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{row.email || '—'}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs">{row.contactNumber || '—'}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{row.email || '—'}</td>
                       <td className="tabular whitespace-nowrap px-3 py-2.5 font-mono text-xs">{row.transactionDate}</td>
                     </tr>
                   ))}

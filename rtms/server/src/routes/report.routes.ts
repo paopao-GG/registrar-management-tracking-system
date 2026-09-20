@@ -2,7 +2,11 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import { reportFiltersSchema } from '@rtams/shared';
-import { generateBupRows, generateReport } from '../services/report.service.js';
+import {
+  generateArtaRows,
+  generateBupRows,
+  generateReport,
+} from '../services/report.service.js';
 import { buildArtaWorkbook, buildBupWorkbook } from '../utils/logbook-xlsx.js';
 
 const XLSX_TYPE =
@@ -27,7 +31,7 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const buffer =
       format === 'arta'
-        ? await buildArtaWorkbook((await generateReport(startDate, endDate)).rows)
+        ? await buildArtaWorkbook(await generateArtaRows(startDate, endDate))
         : await buildBupWorkbook(await generateBupRows(startDate, endDate));
 
     const name = format === 'arta' ? 'ARTA-Logbook' : 'BUP-Logbook';

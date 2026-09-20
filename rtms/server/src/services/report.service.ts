@@ -66,13 +66,22 @@ function servicesSummary(t: ReleasedTransaction) {
   return services.join(', ');
 }
 
-function toArtaRow(t: ReleasedTransaction): ArtaReportRow {
+/*
+ * The signature is only carried for the logbook file. The JSON
+ * preview has no signature column, so it would be a base64 PNG
+ * per row for nothing.
+ */
+function toArtaRow(
+  t: ReleasedTransaction,
+  includeSignature = false
+): ArtaReportRow {
   return {
     clientName: t.studentName,
     requestedDocuments: servicesSummary(t),
     contactNumber: t.student.contactNumber ?? '',
     email: t.student.email ?? '',
     transactionDate: formatDate(t.releasedAt),
+    signature: includeSignature ? t.signature : null,
   };
 }
 
@@ -99,10 +108,16 @@ export async function generateReport(startDate: string, endDate: string) {
   const transactions = await findReleased(startDate, endDate);
 
   return {
-    rows: transactions.map(toArtaRow),
+    // Called directly: map would pass the index as includeSignature.
+    rows: transactions.map((t) => toArtaRow(t)),
     period: { startDate, endDate },
     totalTransactions: transactions.length,
   };
+}
+
+export async function generateArtaRows(startDate: string, endDate: string) {
+  const transactions = await findReleased(startDate, endDate);
+  return transactions.map((t) => toArtaRow(t, true));
 }
 
 export async function generateBupRows(startDate: string, endDate: string) {
