@@ -67,15 +67,20 @@
   - Required: Student Number, Last Name, First Name, Program, Year Level.
   - Optional: Middle Name, Email Address, **Sex** (M/F), **Contact Number**.
 - Programs may be written in full or abbreviated (e.g. BSIT). Tables show the abbreviation.
-- When encoding a request, the Student Name field searches by surname or student number.
-- **Alumni** are not in the roster. Staff add them with the **Alumni** button on the request form, using the same details as a student except Year Level. Alumni are shown as "Alumni" in place of a year level and are never deactivated by a roster import.
+- When encoding a request, the Student Name field searches by surname or student number. It also finds students who are not enrolled this semester, listed after enrolled students.
+- **Alumni** are graduates and are not in the roster. Staff add them with the **Alumni** button on the request form, using the same details as a student except Year Level. Alumni are shown as "Alumni" in place of a year level and are never deactivated by a roster import.
+- **Not Enrolled** students are students missing from the current roster. They are shown as "Not Enrolled" in place of a year level (e.g. BSIT-Not Enrolled).
+  - Students from an earlier roster are found by the search.
+  - Staff add anyone else with the **Add Student** button on the request form. Its Year Level is fixed to "Not Enrolled".
+  - A not-enrolled student is not listed on the Enrolled Students page. If a later roster includes them, they become enrolled again.
+  - Graduates from an earlier roster also appear as Not Enrolled; use **Alumni** for graduates.
 
 ---
 
 ## 5. Staff Dashboard
 
 ### Section 1: Summary cards
-New Requests (Pending), Processing, Ready for Release and Completed, all for the selected day.
+New Requests (Pending), Processing, Ready for Release and Completed, all for the selected period.
 
 ### Section 2: New Request
 
@@ -83,21 +88,25 @@ New Requests (Pending), Processing, Ready for Release and Completed, all for the
 | :--- | :--- |
 | DATE | Auto-filled (MM-DD-YYYY) |
 | RECEIVED/PREPARED BY | Auto-filled from the logged-in account |
-| STUDENT NAME | Search existing students. An **Alumni** button next to the label adds an alumni requester. |
+| STUDENT NAME | Search existing students, including not-enrolled ones. **Add Student** next to the label adds a not-enrolled student; **Alumni** adds an alumni requester. |
 | PROGRAM & YEAR | Auto-filled from the selected record |
 | REQUESTED DOCUMENTS/SERVICES | Counter buttons (−/+) per type: **COR, COG, GMC, AUTH, OTR** |
 | OTHERS | Text input + quantity counter |
 
 ### Section 3: Transactions
 
-**Filters, in order:** Date (Today, Yesterday or Custom Date; default Today), Status, Search by student name. Only transactions created on the selected day are shown.
+**Filters, in order:** Date (Today, Yesterday or **Date Range**; default Today), Status, Program, Year, Search by student name. Only transactions created in the selected period are shown, and the summary cards cover the same period.
+
+**Date Range** shows a From and a To date, starting on the past week. Either box can be cleared: From alone means "since that day", To alone means "up to that day", and clearing both shows every date. The range combines with every other filter, so, for example, documents still waiting to be claimed over the past month are Date Range + Status "Ready for Release".
+
+A request still waiting to be claimed since an earlier day is marked "**N**d waiting" under its date, so older ones stand out.
 
 | Column | Notes |
 | :--- | :--- |
 | ☐ (select) | Checkbox for bulk actions; the header box selects all rows |
 | DATE | Date the request was created |
 | STUDENT | Surname first |
-| PROGRAM | Abbreviated with year level, e.g. BSIT-1 or BSIT-Alumni |
+| PROGRAM | Abbreviated with year level, e.g. BSIT-1, BSIT-Alumni or BSIT-Not Enrolled |
 | REQUESTED DOCUMENTS/SERVICES | e.g. COR(1), GMC(2), Others: … |
 | STATUS | See status rules below |
 | ACTIONS | Start Processing, Release or View Signature, depending on status |
@@ -124,7 +133,7 @@ The Reviewed/Signed By column is not shown on the dashboards; it appears in the 
 1. Staff enters the claimant's name (the dialog suggests the students' names).
 2. Staff clicks **Sign on Tablet**. The tablet shows the claimant's name and, for a bulk release, the number of documents and the students they are for.
 3. Staff sees a live preview while the claimant signs.
-4. When the claimant finishes, staff clicks **Confirm Release**.
+4. When the claimant finishes, staff clicks **Confirm Release**. A signing left unconfirmed for 10 minutes ends by itself, and the tablet returns to waiting.
 
 ### Reset Tablet
 A button at the top of the dashboard frees the signing tablet so the sign page can be opened on a different device.
@@ -134,7 +143,7 @@ A button at the top of the dashboard frees the signing tablet so the sign page c
 ## 6. Admin Dashboard
 
 - The same summary cards and transaction table as the Staff Dashboard, covering requests from **all staff**.
-- **Filters, in order:** Date (default today; one day at a time), Status.
+- **Filters, in order:** Date range as From and To (both default to today), Status, Program, Year.
 - **Actions:** Sign, for Processing requests. Selecting rows enables **Sign (n)** for bulk signing.
 - Reset Tablet button.
 
@@ -148,8 +157,12 @@ A button at the top of the dashboard frees the signing tablet so the sign page c
 - After Done, the tablet shows "Signature Submitted" until staff confirms, then "Signature Confirmed".
 
 **Security rules**
-- The sign page works on **one device only**. Opening it on another device shows "Tablet Already in Use". Another device can take over if the first one has been closed for about a minute, or immediately after staff or admin click **Reset Tablet**.
-- The sign page only works **while a staff member is active**, meaning logged in and used in the last few minutes, or while a signing session they opened is in progress. Otherwise it shows "Signing Unavailable".
+
+The tablet never logs in. Two conditions must both hold, and the server enforces both, so the page cannot be bypassed by calling the API directly.
+
+- **One device only.** The first device to open the sign page registers itself as the signing tablet. Another device opening the same URL shows "Tablet Already in Use". Refreshing or reconnecting on the registered device keeps it. If that device is closed for about a minute another may take over, or staff and admin can press **Reset Tablet** on their dashboard, for example when the tablet is replaced or its browser data was cleared.
+- **A Staff member must be signed in.** While no staff member is working in RTAMS the page shows "Signature Pad Inactive — Staff login required", and it returns to the waiting screen within a few seconds of a staff member signing in. Staff stay counted as working while their dashboard is open, and logging out makes the tablet inactive right away.
+- **Admin does not activate it.** An admin cannot release documents, so an admin session alone leaves the page inactive.
 
 ---
 
@@ -168,22 +181,25 @@ A button at the top of the dashboard frees the signing tablet so the sign page c
 
 **Filters:** Start date and end date. The report covers documents **released** in that range.
 
-**Preview:** the ARTA columns for the range, with the number of transactions.
+**Preview:** the ARTA columns for the range, numbered, with the number of transactions. Signatures are not shown on screen; they appear in the downloaded file.
 
-**Downloads:** both files are Excel (.xlsx) and start with an orange header row reading **COLLEGE/CAMPUS: BICOL UNIVERSITY POLANGUI**.
+**Downloads:** both files are Excel (.xlsx). The ARTA file opens with **Government Office Name: Bicol University Polangui** and a note that the listed clients have completed the service availed; the BUP file opens with an orange header row reading **COLLEGE/CAMPUS: BICOL UNIVERSITY POLANGUI**.
 
 **ARTA-Logbook export**
 
-| External Client Name | Requested Documents/Services | Contact Number | University Email Address | Date of Transaction |
-| :--- | :--- | :--- | :--- | :--- |
+| # | External Client Name | Service Availed | Client Contact | Client Contact Info (Email Address) | Day of Service Completion | Signature |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 
-The Date of Transaction is the date the documents were released.
+- The Day of Service Completion is the date the documents were released.
+- Client Contact reads **NONE** when no contact number is on file.
+- The Signature column holds the claimant's captured signature, the same image as in the BUP logbook.
 
 **BUP-Logbook export**
 
-| Date | Name | Sex (M/F) | Course & Year Level | Requested Documents/Services | Received/Prepared By | Reviewed/Signed By | Duration of Process | Released To/Claimed By | Signature |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| No. | Date | Name | Sex (M/F) | Course & Year Level | Requested Documents/Services | Received/Prepared By | Reviewed/Signed By | Duration of Process | Released To/Claimed By | Signature |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 
+- Rows are numbered from 1 in each export.
 - Requested Documents/Services is split into COR, COG, GMC, AUTH, OTR and OTHERS, each holding the count for that request. The OTHERS description appears as a cell note.
 - The three "By" columns show the name with the date and time.
 - The Signature column shows the claimant's captured signature with no background.
@@ -216,7 +232,7 @@ The Date of Transaction is the date the documents were released.
 ## 12. Workflow Summary
 
 1. **Staff logs in** → sees today's requests and the New Request form.
-2. **Encodes a request** → selects a student (or adds an alumni requester), sets document counts, saves → **Pending**.
+2. **Encodes a request** → selects a student (or adds a not-enrolled student or an alumni requester), sets document counts, saves → **Pending**.
 3. **Starts processing** → one request or several at once → **Processing**.
 4. **Registrar signs** → one request or several at once → **Ready for Release**, duration recorded.
 5. **Claimant arrives** → staff selects one or more ready requests, enters the claimant's name and sends to the tablet → the claimant consents and signs → staff confirms → **Released**.

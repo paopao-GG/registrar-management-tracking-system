@@ -256,9 +256,9 @@ Supabase database is paused (free tier auto-pauses after inactivity). Open the S
 
 `rtms/api/index.mjs` must send `response.rawPayload` (bytes), not `response.body` (text). Sending the body as text corrupts binary files.
 
-### The signing tablet says "Signing Unavailable"
+### The signing tablet says "Signature Pad Inactive"
 
-A staff account must be logged in and used within the last 3 minutes. Log in as staff on the office PC and move the mouse; the tablet retries every few seconds.
+No staff member is signed in to RTAMS. Log in as staff on the office PC and leave the dashboard open; the tablet becomes available within a few seconds. An admin session does not activate it.
 
 ### The signing tablet says "Tablet Already in Use"
 
