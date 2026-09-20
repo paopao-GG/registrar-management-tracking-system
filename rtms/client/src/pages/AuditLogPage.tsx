@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -8,11 +8,13 @@ import { TableSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import { TopScrollContainer } from '@/components/ui/top-scroll';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { statusVariant } from '@/components/transactions/TransactionTable';
 import { formatDateTime } from '@/lib/utils';
 import { getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
-import { ArrowRight, ChevronLeft, ChevronRight, Printer, ScrollText } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Printer, ScrollText, Trash2 } from 'lucide-react';
 
 interface AuditLog {
   _id: string;
@@ -33,31 +35,75 @@ export function AuditLogPage() {
   const [endDate, setEndDate] = useState(getPhilippineDate);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   useEffect(() => {
     setPage(1);
   }, [startDate, endDate]);
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      const params: Record<string, string | number> = { page, limit: PAGE_SIZE };
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-      setLoading(true);
-      try {
-        const { data } = await api.get('/audit-logs', { params });
-        setLogs(data.logs);
-        setTotal(data.total);
-      } catch (error) {
-        console.error('Failed to load audit logs:', error);
-      } finally {
-        setLoading(false);
-        setLoaded(true);
-      }
-    };
+  // The date range currently on screen, which Clear Log works from too.
+  const range = useCallback(() => {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return params;
+  }, [startDate, endDate]);
 
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/audit-logs', {
+        params: { ...range(), page, limit: PAGE_SIZE },
+      });
+      setLogs(data.logs);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Failed to load audit logs:', error);
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }, [range, page]);
+
+  useEffect(() => {
     fetchLogs();
-  }, [startDate, endDate, page]);
+  }, [fetchLogs]);
+
+  const handleClear = async () => {
+    const scope =
+      startDate || endDate
+        ? 'the selected date range'
+        : 'the entire log, across all dates';
+
+    const confirmed = await confirm({
+      title: 'Clear the audit log?',
+      description:
+        `This permanently deletes ${total} ${total === 1 ? 'entry' : 'entries'} from ${scope}. ` +
+        'The requests themselves are kept, but the record of who changed them cannot be recovered.',
+      confirmText: 'Clear log',
+      tone: 'destructive',
+    });
+
+    if (!confirmed) return;
+
+    setClearing(true);
+    try {
+      const { data } = await api.delete('/audit-logs', { params: range() });
+
+      toast.success('Audit log cleared', {
+        description: `${data.deleted} ${data.deleted === 1 ? 'entry' : 'entries'} removed`,
+      });
+
+      setPage(1);
+      await fetchLogs();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error ?? 'Failed to clear the audit log.');
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const today = getPhilippineDate();
   const showingToday = startDate === today && endDate === today;
@@ -79,10 +125,21 @@ export function AuditLogPage() {
         eyebrow="Accountability"
         title="Audit Log"
         actions={
-          <Button variant="outline" onClick={() => window.print()} disabled={logs.length === 0}>
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => window.print()} disabled={logs.length === 0}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleClear}
+              disabled={total === 0 || loading}
+              loading={clearing}
+            >
+              {!clearing && <Trash2 className="h-4 w-4" />}
+              {clearing ? 'Clearing…' : 'Clear Log'}
+            </Button>
+          </>
         }
       />
 
