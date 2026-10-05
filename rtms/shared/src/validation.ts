@@ -136,6 +136,13 @@ export const bulkIdsSchema = z.object({
     .max(200, 'Cannot process more than 200 transactions at once'),
 });
 
+export const bulkStudentIdsSchema = z.object({
+  ids: z
+    .array(z.string().min(1))
+    .min(1, 'Select at least one student')
+    .max(200, 'Cannot remove more than 200 students at once'),
+});
+
 export const bulkReleaseSchema = bulkIdsSchema.extend({
   releasedTo: z.string().trim().min(1, 'Claimer name is required'),
   signature: z.string().min(1, 'Signature is required'),

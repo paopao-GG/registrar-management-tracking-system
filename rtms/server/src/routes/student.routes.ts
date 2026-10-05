@@ -8,6 +8,7 @@ import {
   NOT_ENROLLED_YEAR_LEVEL,
   createStudentSchema,
   bulkImportSchema,
+  bulkStudentIdsSchema,
   currentYearLevel,
   formatStudentName,
   normalizeCourse,
@@ -282,6 +283,110 @@ export async function studentRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  /*
+   * Remove several students at once — Admin only.
+   *
+   * Same rules as removing one: a student with transactions is deactivated,
+   * one without is deleted, and no transaction is ever touched. Both halves
+   * apply in a single transaction, so a partial removal cannot be left
+   * behind if one of them fails.
+   */
+  app.post(
+    '/api/students/bulk-remove',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = bulkStudentIdsSchema.safeParse(
+        request.body
+      );
+
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.issues[0].message,
+        });
+      }
+
+      const { ids } = parsed.data;
+
+      try {
+        const students = await prisma.student.findMany({
+          where: { id: { in: ids } },
+          select: {
+            id: true,
+            _count: {
+              select: { transactions: true },
+            },
+          },
+        });
+
+        if (students.length === 0) {
+          return reply.status(404).send({
+            error: 'No matching students found',
+          });
+        }
+
+        const toDeactivate = students
+          .filter((s) => s._count.transactions > 0)
+          .map((s) => s.id);
+
+        const toDelete = students
+          .filter((s) => s._count.transactions === 0)
+          .map((s) => s.id);
+
+        const keptTransactions = students.reduce(
+          (total, s) => total + s._count.transactions,
+          0
+        );
+
+        await prisma.$transaction([
+          ...(toDeactivate.length
+            ? [
+                prisma.student.updateMany({
+                  where: { id: { in: toDeactivate } },
+                  data: { active: false },
+                }),
+              ]
+            : []),
+          ...(toDelete.length
+            ? [
+                prisma.student.deleteMany({
+                  where: { id: { in: toDelete } },
+                }),
+              ]
+            : []),
+        ]);
+
+        request.log.info(
+          {
+            userId: request.user?.id,
+            requested: ids.length,
+            deactivated: toDeactivate.length,
+            deleted: toDelete.length,
+          },
+          'bulk student removal complete'
+        );
+
+        /*
+         * Counted from the rows actually found, so ids that disappeared
+         * between rendering the list and submitting are not claimed as
+         * removed.
+         */
+        return reply.status(200).send({
+          removed: students.length,
+          keptTransactions,
+        });
+      } catch (err) {
+        request.log.error(
+          err,
+          'Failed to remove students'
+        );
+
+        return reply.status(500).send({
+          error: 'Failed to remove students',
+        });
+      }
+    }
+  );
 
   /*
    * Manually create a student.

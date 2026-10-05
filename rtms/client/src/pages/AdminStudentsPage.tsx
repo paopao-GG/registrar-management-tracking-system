@@ -13,8 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { TopScrollContainer } from '@/components/ui/top-scroll';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
 import { BulkImportDialog } from '@/components/students/BulkImportDialog';
-import { ChevronLeft, ChevronRight, GraduationCap, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { COURSE_ALIASES, abbreviateCourse, formatYearLevel } from '@rtams/shared';
+import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 
 interface Student {
@@ -44,6 +45,8 @@ export function AdminStudentsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removingBulk, setRemovingBulk] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const confirm = useConfirm();
   const toast = useToast();
 
@@ -77,6 +80,85 @@ export function AdminStudentsPage() {
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
+
+  /*
+   * Selection covers the rows on screen, so it empties on its own when the
+   * page or the filters change, or after a removal drops rows.
+   */
+  useEffect(() => {
+    setSelected((current) => {
+      if (current.size === 0) return current;
+
+      const visible = new Set(students.map((s) => s._id));
+      const next = new Set([...current].filter((id) => visible.has(id)));
+
+      return next.size === current.size ? current : next;
+    });
+  }, [students]);
+
+  const allSelected =
+    students.length > 0 && students.every((s) => selected.has(s._id));
+
+  const toggleAll = () => {
+    setSelected(
+      allSelected ? new Set() : new Set(students.map((s) => s._id))
+    );
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+
+      if (!next.delete(id)) {
+        next.add(id);
+      }
+
+      return next;
+    });
+  };
+
+  const handleRemoveSelected = async () => {
+    const count = selected.size;
+
+    const confirmed = await confirm({
+      title: `Remove ${count} ${count === 1 ? 'student' : 'students'}?`,
+      description:
+        `${count === 1 ? 'The student' : 'They'} will be removed from the directory. ` +
+        'Any requests already encoded for them are kept.',
+      confirmText: `Remove ${count === 1 ? 'student' : 'students'}`,
+      tone: 'destructive',
+    });
+
+    if (!confirmed) return;
+
+    setRemovingBulk(true);
+    try {
+      const { data } = await api.post('/students/bulk-remove', {
+        ids: [...selected],
+      });
+
+      const removed = data?.removed ?? count;
+      const kept = data?.keptTransactions ?? 0;
+
+      toast.success(
+        `${removed} ${removed === 1 ? 'student' : 'students'} removed`,
+        {
+          description: kept
+            ? `${kept} existing ${kept === 1 ? 'request' : 'requests'} kept`
+            : undefined,
+        }
+      );
+
+      setSelected(new Set());
+      await fetchStudents();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.error ?? 'Failed to remove students.';
+      toast.error(message);
+    } finally {
+      setRemovingBulk(false);
+    }
+  };
 
   const handleRemove = async (student: Student) => {
     const confirmed = await confirm({
@@ -173,7 +255,7 @@ export function AdminStudentsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {loading && students.length === 0 && <TableSkeleton cols={6} />}
+          {loading && students.length === 0 && <TableSkeleton cols={7} />}
           {!loading && students.length === 0 && (
             <EmptyState
               icon={filtered ? Search : GraduationCap}
@@ -187,10 +269,62 @@ export function AdminStudentsPage() {
           )}
           {students.length > 0 && (
             <>
+              {selected.size > 0 && (
+                <div
+                  data-print-hide
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-seal/40 bg-seal/10 px-3 py-2 animate-in fade-in-0 slide-in-from-top-1"
+                >
+                  <span className="mr-1 flex items-center gap-2 text-sm font-medium">
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-seal px-1.5 font-mono text-xs text-seal-foreground">
+                      {selected.size}
+                    </span>
+                    selected
+                  </span>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:border-destructive/40 hover:bg-destructive hover:text-destructive-foreground"
+                    loading={removingBulk}
+                    onClick={handleRemoveSelected}
+                  >
+                    {!removingBulk && <Trash2 className="h-3.5 w-3.5" />}
+                    Remove ({selected.size})
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={removingBulk}
+                    onClick={() => setSelected(new Set())}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Clear
+                  </Button>
+                </div>
+              )}
+
               <TopScrollContainer>
                 <table className="data-table w-full text-sm">
                   <thead className="border-b">
                     <tr className="bg-muted/60 text-left">
+                      <th className="w-8 px-3 py-2.5" data-print-hide>
+                        <input
+                          type="checkbox"
+                          aria-label="Select all students on this page"
+                          title="Select all on this page"
+                          className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
+                          checked={allSelected}
+                          // Partly selected pages are the common case here.
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate =
+                                selected.size > 0 && !allSelected;
+                            }
+                          }}
+                          onChange={toggleAll}
+                        />
+                      </th>
                       <th className="px-3 py-2.5 whitespace-nowrap">Student #</th>
                       <th className="px-3 py-2.5">Name</th>
                       <th className="px-3 py-2.5">Program</th>
@@ -202,7 +336,22 @@ export function AdminStudentsPage() {
                   </thead>
                   <tbody>
                     {students.map((s) => (
-                      <tr key={s._id} className="border-b border-border/60 last:border-0">
+                      <tr
+                        key={s._id}
+                        className={cn(
+                          'border-b border-border/60 last:border-0',
+                          selected.has(s._id) && 'bg-seal/5'
+                        )}
+                      >
+                        <td className="px-3 py-2.5" data-print-hide>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${s.name}`}
+                            className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
+                            checked={selected.has(s._id)}
+                            onChange={() => toggleOne(s._id)}
+                          />
+                        </td>
                         <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{s.studentNumber}</td>
                         <td className="px-3 py-2.5 font-medium">{s.name}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap" title={s.course}>

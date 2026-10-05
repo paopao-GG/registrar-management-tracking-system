@@ -11,6 +11,7 @@ import { NativeSelect } from '@/components/ui/select';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { LiveIndicator, StatTiles } from '@/components/dashboard/StatTiles';
 import { ProgramYearFilters, programYearParams } from '@/components/dashboard/ProgramYearFilters';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NewRequestForm } from '@/components/transactions/NewRequestForm';
 import {
@@ -29,7 +30,7 @@ import {
   type DateRange,
 } from '@/lib/date';
 import api from '@/lib/api';
-import { Search } from 'lucide-react';
+import { FilterX, Search } from 'lucide-react';
 
 /*
  * Today, yesterday, or a custom range. An empty end of the
@@ -197,6 +198,25 @@ export function StaffDashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const filtersActive =
+    !!statusFilter ||
+    !!programFilter ||
+    !!yearLevelFilter ||
+    dateFilter !== 'today' ||
+    !!searchName;
+
+  const clearFilters = () => {
+    setStatusFilter('');
+    setProgramFilter('');
+    setYearLevelFilter('');
+    setDateFilter('today');
+    setRangeStart('');
+    setRangeEnd('');
+    setSearchName('');
+    // Clear the debounced copy too, or the pending timer refetches the old term.
+    setDebouncedSearch('');
+  };
+
   const period = getDateRange(dateFilter, rangeStart, rangeEnd);
   const today = getPhilippineDate();
   const isToday =
@@ -321,6 +341,18 @@ export function StaffDashboard() {
                 onChange={(e) => setSearchName(e.target.value)}
               />
             </div>
+
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="self-start md:self-center"
+              >
+                <FilterX className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            )}
           </div>
         </CardHeader>
 

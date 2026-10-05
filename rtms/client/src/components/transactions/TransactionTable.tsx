@@ -109,6 +109,8 @@ export function TransactionTable({
     (status === 'Ready for Release' && !!onRelease);
 
   // Only rows with an action get a checkbox; hide the column when none do.
+  // The column stays mounted while a status lock hides individual boxes,
+  // so the table does not reflow on every click.
   const selectable =
     showActions && transactions.some((t) => hasAction(t.status));
 
@@ -139,10 +141,18 @@ export function TransactionTable({
   const processingSelected = selectedRows.filter((t) => t.status === 'Processing');
   const readySelected = selectedRows.filter((t) => t.status === 'Ready for Release');
 
-  // Select-all is offered only once the selection holds a single status.
+  /*
+   * The first checked row locks the selection to its status. A bulk action
+   * applies one status change, so a mixed selection has no single meaning.
+   */
   const selectedStatuses = new Set(selected.values());
   const selectedStatus =
     selectedStatuses.size === 1 ? [...selectedStatuses][0] : null;
+
+  // Hide the checkbox on rows the lock rules out.
+  const canSelect = (t: Transaction) =>
+    hasAction(t.status) &&
+    (!selectedStatus || t.status === selectedStatus);
 
   const sameStatusRows = selectedStatus
     ? transactions.filter((t) => t.status === selectedStatus)
@@ -197,6 +207,16 @@ export function TransactionTable({
             </span>
             selected
           </span>
+
+          {/* Say why the other rows lost their checkbox. */}
+          {selectedStatus && (
+            <Badge
+              variant={statusVariant(selectedStatus)}
+              className="whitespace-nowrap"
+            >
+              {selectedStatus} only
+            </Badge>
+          )}
 
           {onStartProcessing && pendingSelected.length > 0 && (
             <Button
@@ -340,7 +360,7 @@ export function TransactionTable({
                 >
                   {selectable && (
                     <td className="px-3 py-2">
-                      {hasAction(t.status) && (
+                      {canSelect(t) && (
                         <input
                           type="checkbox"
                           aria-label={`Select ${t.studentName}`}

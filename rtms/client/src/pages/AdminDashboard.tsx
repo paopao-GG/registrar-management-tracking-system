@@ -14,9 +14,11 @@ import { ProgramYearFilters, programYearParams } from '@/components/dashboard/Pr
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { SignDialog } from '@/components/transactions/SignDialog';
 import { ResetTabletButton } from '@/components/transactions/ResetTabletButton';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatPeriod, getPhilippineDate } from '@/lib/date';
 import api from '@/lib/api';
+import { FilterX } from 'lucide-react';
 
 export function AdminDashboard() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -101,6 +103,21 @@ export function AdminDashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const filtersActive =
+    !!statusFilter ||
+    !!programFilter ||
+    !!yearLevelFilter ||
+    rangeStart !== today ||
+    rangeEnd !== today;
+
+  const clearFilters = () => {
+    setStatusFilter('');
+    setProgramFilter('');
+    setYearLevelFilter('');
+    setRangeStart(today);
+    setRangeEnd(today);
+  };
+
   return (
     <div className="page-enter space-y-6">
       <PageHeader
@@ -173,6 +190,17 @@ export function AdminDashboard() {
               onProgramChange={setProgramFilter}
               onYearLevelChange={setYearLevelFilter}
             />
+
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="self-start sm:self-auto"
+              >
+                <FilterX className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            )}
           </div>
         </CardHeader>
 

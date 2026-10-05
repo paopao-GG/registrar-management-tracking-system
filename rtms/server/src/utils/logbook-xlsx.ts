@@ -18,20 +18,42 @@ const thin: Partial<ExcelJS.Borders> = {
 
 const DOC_COLUMNS = ['COR', 'COG', 'GMC', 'AUTH', 'OTR', 'OTHERS'] as const;
 
-function addCampusHeader(sheet: ExcelJS.Worksheet, columnCount: number) {
-  sheet.mergeCells(1, 1, 1, columnCount);
+/*
+ * OTHERS carries a service name, not just a count, so it is wider than the
+ * other document columns — but only wide enough for the usual short labels
+ * ("CLEARANCE - 2"). Anything longer wraps instead of stretching the sheet.
+ */
+const OTHERS_WIDTH = 14;
 
-  const cell = sheet.getCell(1, 1);
+function addCampusHeader(
+  sheet: ExcelJS.Worksheet,
+  columnCount: number,
+  rowNumber: number = 1
+) {
+  sheet.mergeCells(rowNumber, 1, rowNumber, columnCount);
+
+  const cell = sheet.getCell(rowNumber, 1);
   cell.value = ` ${CAMPUS_HEADER} `;
-  cell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-  cell.alignment = { vertical: 'middle', horizontal: 'left' };
-  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+  cell.font = {
+    bold: true,
+    size: 12,
+    color: { argb: 'FFFFFFFF' },
+  };
+  cell.alignment = {
+    vertical: 'middle',
+    horizontal: 'left',
+  };
+  cell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: ORANGE },
+  };
 
   for (let col = 1; col <= columnCount; col++) {
-    sheet.getCell(1, col).border = thin;
+    sheet.getCell(rowNumber, col).border = thin;
   }
 
-  sheet.getRow(1).height = 22;
+  sheet.getRow(rowNumber).height = 22;
 }
 
 function addArtaHeader(sheet: ExcelJS.Worksheet, columnCount: number) {
@@ -97,23 +119,38 @@ function nameWithDate(value: NameDateTime) {
   return value.dateTime ? `${value.name}\n${value.dateTime}` : value.name;
 }
 
+/* The service a row availed outside the named columns, e.g. "LOA - 1". */
+function othersCell(r: BupReportRow) {
+  const label = r.othersLabel?.trim();
+
+  return label && r.OTHERS > 0 ? `${label} - ${r.OTHERS}` : '';
+}
+
+/*
+ * Every other service across the period, each with its own total, so the
+ * column reconciles with the rows above it. Labels are free text, so they
+ * are grouped case-insensitively under the first spelling seen.
+ */
 function buildOthersTotal(rows: BupReportRow[]) {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { label: string; count: number }>();
 
   rows.forEach((r) => {
     const label = r.othersLabel?.trim();
 
-    if (label) {
-      counts.set(label, (counts.get(label) || 0) + 1);
+    if (!label || r.OTHERS <= 0) return;
+
+    const key = label.toLowerCase();
+    const entry = counts.get(key);
+
+    if (entry) {
+      entry.count += r.OTHERS;
+    } else {
+      counts.set(key, { label, count: r.OTHERS });
     }
   });
 
-  if (counts.size === 0) {
-    return '';
-  }
-
-  return Array.from(counts.entries())
-    .map(([label, count]) => `${label} - ${count}`)
+  return Array.from(counts.values())
+    .map(({ label, count }) => `${label} - ${count}`)
     .join('\n');
 }
 
@@ -213,7 +250,9 @@ export async function buildBupWorkbook(rows: BupReportRow[]) {
     { width: 30 },
     { width: 8 },
     { width: 16 },
-    ...DOC_COLUMNS.map(() => ({ width: 8 })),
+    ...DOC_COLUMNS.map((d) => ({
+      width: d === 'OTHERS' ? OTHERS_WIDTH : 8,
+    })),
     { width: 24 },
     { width: 24 },
     { width: 14 },
@@ -222,7 +261,7 @@ export async function buildBupWorkbook(rows: BupReportRow[]) {
   ];
 
   sheet.insertRow(1, []);
-  addCampusHeader(sheet, columnCount);
+  addCampusHeader(sheet, columnCount, 2);
 
   // Two-row header: documents get a group title with sub-columns.
   const top = sheet.getRow(4);
@@ -266,7 +305,7 @@ export async function buildBupWorkbook(rows: BupReportRow[]) {
       r.name,
       r.sex,
       r.courseYear,
-      ...DOC_COLUMNS.map((d) => r[d] || ''),
+      ...DOC_COLUMNS.map((d) => (d === 'OTHERS' ? othersCell(r) : r[d] || '')),
       nameWithDate(r.preparedBy),
       nameWithDate(r.reviewedBy),
       r.duration,
@@ -284,9 +323,12 @@ export async function buildBupWorkbook(rows: BupReportRow[]) {
     }
     row.getCell(docEnd + 3).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    if (r.othersLabel) {
-      row.getCell(docEnd).note = r.othersLabel;
-    }
+    // OTHERS reads as text, so it is left-aligned like the TOTAL row's.
+    row.getCell(docEnd).alignment = {
+      vertical: 'middle',
+      horizontal: 'left',
+      wrapText: true,
+    };
 
     DOC_COLUMNS.forEach((d) => {
       totals[d] += r[d];
@@ -331,10 +373,20 @@ export async function buildBupWorkbook(rows: BupReportRow[]) {
     wrapText: true,
   };
 
-  totalRow.height = Math.max(
-    30,
-    18 * (othersTotal ? othersTotal.split('\n').length : 1)
-  );
+  /*
+   * One line per service, plus the lines a label too long for the column
+   * wraps onto, so nothing in the breakdown is cut off.
+   */
+  const othersLines = othersTotal
+    ? othersTotal
+        .split('\n')
+        .reduce(
+          (lines, entry) => lines + Math.ceil(entry.length / OTHERS_WIDTH),
+          0
+        )
+    : 1;
+
+  totalRow.height = Math.max(30, 18 * othersLines);
 
   sheet.views = [{ state: 'frozen', ySplit: 5 }];
 
