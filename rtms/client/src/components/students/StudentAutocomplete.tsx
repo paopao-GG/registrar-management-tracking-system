@@ -36,6 +36,16 @@ export function StudentAutocomplete({
 
   const { results, isLoading } = useStudentSearch(query);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Keep the highlighted student in view while moving with the arrow keys.
+  useEffect(() => {
+    if (highlightedIndex < 0) return;
+
+    listRef.current
+      ?.querySelector(`[data-index="${highlightedIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex]);
 
   // Clear the search box when the parent form is reset.
   useEffect(() => {
@@ -152,6 +162,7 @@ export function StudentAutocomplete({
 
       {isOpen && query.length > 0 && (
         <div
+          ref={listRef}
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border/80 bg-card py-1 shadow-float animate-in fade-in-0 slide-in-from-top-1"
         >
@@ -173,6 +184,7 @@ export function StudentAutocomplete({
               key={student._id}
               type="button"
               role="option"
+              data-index={index}
               aria-selected={highlightedIndex === index}
               className={cn(
                 'w-full border-l-2 px-3 py-2 text-left text-sm transition-colors',
@@ -180,7 +192,10 @@ export function StudentAutocomplete({
                   ? 'border-seal bg-seal/10'
                   : 'border-transparent hover:bg-accent'
               )}
-              onMouseEnter={() =>
+              // Mouse move, not enter: scrolling the list under a still
+              // pointer fires mouseenter and would steal the keyboard
+              // highlight.
+              onMouseMove={() =>
                 setHighlightedIndex(index)
               }
               onClick={() => handleSelect(student)}

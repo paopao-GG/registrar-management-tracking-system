@@ -10,7 +10,7 @@ import { Sun, Moon, AlertCircle, ArrowRight, ClipboardCheck, PenLine, BarChart3 
 
 const highlights = [
   { icon: ClipboardCheck, text: 'Track every document request from intake to release' },
-  { icon: PenLine, text: 'Capture student signatures on the counter tablet' },
+  { icon: PenLine, text: 'Capture student signatures on a signing device' },
   { icon: BarChart3, text: 'Report staff accomplishments by day, month, or term' },
 ];
 

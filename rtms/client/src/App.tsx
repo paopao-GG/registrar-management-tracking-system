@@ -13,7 +13,7 @@ import { ReportsPage } from '@/pages/ReportsPage';
 import { StaffManagementPage } from '@/pages/StaffManagementPage';
 import { AuditLogPage } from '@/pages/AuditLogPage';
 import { AdminStudentsPage } from '@/pages/AdminStudentsPage';
-import { TabletSignPage } from '@/pages/TabletSignPage';
+import { SignPage } from '@/pages/SignPage';
 
 const queryClient = new QueryClient();
 
@@ -27,8 +27,8 @@ function App() {
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
 
-                {/* Tablet signing route - public */}
-                <Route path="/sign" element={<TabletSignPage />} />
+                {/* Signing route - public */}
+                <Route path="/sign" element={<SignPage />} />
 
                 {/* Staff routes */}
                 <Route

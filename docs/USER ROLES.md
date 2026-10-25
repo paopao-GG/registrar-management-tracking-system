@@ -131,7 +131,7 @@ The Reviewed/Signed By column is not shown on the dashboards; it appears in the 
 
 ### Release flow
 1. Staff enters the claimant's name (the dialog suggests the students' names).
-2. Staff clicks **Sign on Tablet**. The sign device shows the claimant's name and, for a bulk release, the number of documents and the students they are for.
+2. Staff clicks **Send to Sign Device**. The sign device shows the claimant's name and, for a bulk release, the number of documents and the students they are for.
 3. Staff sees a live preview while the claimant signs.
 4. When the claimant finishes, staff clicks **Confirm Release**. A signing left unconfirmed for 10 minutes ends by itself, and the sign device returns to waiting.
 

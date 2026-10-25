@@ -13,7 +13,7 @@ function readDismissed() {
   }
 }
 
-/* Notice about the essential browser storage RTAMS uses. Hidden on the signing tablet. */
+/* Notice about the essential browser storage RTAMS uses. Hidden on the sign device. */
 export function CookieBanner() {
   const { pathname } = useLocation();
   const [dismissed, setDismissed] = useState(readDismissed);

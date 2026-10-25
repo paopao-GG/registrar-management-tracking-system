@@ -19,7 +19,7 @@ export async function buildApp() {
      * An unlisted origin is answered without the CORS headers, which is what
      * makes the browser block a genuine cross-origin call. Rejecting it with an
      * error instead would turn it into a 500, and browsers send an Origin on
-     * same-origin POSTs too: the tablet reaching RTAMS on any host other than
+     * same-origin POSTs too: the sign device reaching RTAMS on any host other than
      * CORS_ORIGIN (its LAN address, say) failed its own claim that way.
      */
     origin: (origin, cb) => {

@@ -4,7 +4,7 @@
 **Version:** 2.0 (covers the changes requested in [v2.md](v2.md))
 **Last updated:** September 17, 2026
 
-This document explains how RTAMS is built. It covers the architecture, the data model, the transaction workflow, the tablet signing mechanism, report generation and security. It is written for developers maintaining the system and for reviewers who need to understand the design decisions. For what the system does from a user's point of view, see [USER ROLES.md](USER%20ROLES.md). For setup, see [LOCAL_SETUP_GUIDE.md](LOCAL_SETUP_GUIDE.md) and [VERCEL_DEPLOYMENT_GUIDE.md](VERCEL_DEPLOYMENT_GUIDE.md).
+This document explains how RTAMS is built. It covers the architecture, the data model, the transaction workflow, the signing mechanism, report generation and security. It is written for developers maintaining the system and for reviewers who need to understand the design decisions. For what the system does from a user's point of view, see [USER ROLES.md](USER%20ROLES.md). For setup, see [LOCAL_SETUP_GUIDE.md](LOCAL_SETUP_GUIDE.md) and [VERCEL_DEPLOYMENT_GUIDE.md](VERCEL_DEPLOYMENT_GUIDE.md).
 
 ---
 
@@ -16,7 +16,7 @@ The Registrar's Office records every document request: who asked for which docum
 |---|---|---|
 | Staff | Office PC | Encode requests, start processing, release documents |
 | Admin (Registrar) | Office PC | Sign documents, view reports, manage staff and students |
-| Claimant | Signing tablet (no login) | Signs to acknowledge receipt |
+| Claimant | Sign device (no login) | Signs to acknowledge receipt |
 
 The two official logbooks the office submits, the **ARTA Logbook** and the **BUP Logbook**, are generated directly from the recorded transactions as Excel files.
 
@@ -26,7 +26,7 @@ The two official logbooks the office submits, the **ARTA Logbook** and the **BUP
 flowchart LR
   subgraph Browser
     PC[Staff / Admin PC<br/>React app]
-    TAB[Signing tablet<br/>/sign page]
+    TAB[Sign device<br/>/sign page]
   end
   subgraph Vercel
     STATIC[Static files<br/>client/dist]
@@ -37,7 +37,7 @@ flowchart LR
   PC -->|HTML/JS| STATIC
   TAB -->|HTML/JS| STATIC
   PC -->|/api/* + JWT| FN
-  TAB -->|/api/signing/tablet/* + device ID| FN
+  TAB -->|/api/signing/device/* + device ID| FN
   FN -->|Prisma| DB
 ```
 
@@ -47,11 +47,11 @@ The code is an npm workspace in `rtms/` with three packages:
 |---|---|---|
 | `shared` (`@rtams/shared`) | Types, Zod validation schemas and constants used by both sides (document types, program aliases, date and duration helpers) | TypeScript, Zod |
 | `server` (`@rtams/server`) | REST API and business logic | Fastify 4, Prisma 6, PostgreSQL, JWT, bcrypt, ExcelJS |
-| `client` (`@rtams/client`) | Single-page app for staff, admin and the tablet | React 19, Vite, Tailwind CSS, Radix UI, react-signature-canvas |
+| `client` (`@rtams/client`) | Single-page app for staff, admin and the sign device | React 19, Vite, Tailwind CSS, Radix UI, react-signature-canvas |
 
 **Deployment.** On Vercel, the client is served as static files and all `/api/*` requests are rewritten to one serverless function (`rtms/api/index.mjs`). That function builds the Fastify app once per warm instance and forwards each request with `fastify.inject()`. The response body is passed back as raw bytes (`rawPayload`) so binary downloads such as the Excel logbooks are not corrupted.
 
-Because the server runs as short-lived serverless instances, **no state is kept in memory between requests**. Anything that must be shared, such as signing sessions, the tablet lock and staff activity, lives in the database. The one exception is a 10-second per-instance cache of the "is any staff active" check, which is safe to lose.
+Because the server runs as short-lived serverless instances, **no state is kept in memory between requests**. Anything that must be shared, such as signing sessions, the sign device lock and staff activity, lives in the database. The one exception is a 10-second per-instance cache of the "is any staff active" check, which is safe to lose.
 
 ### 2.1 Server layout
 
@@ -64,7 +64,7 @@ server/src/
 ├── routes/                # HTTP layer: validation and responses
 │   ├── auth.routes.ts         # login, logout, heartbeat
 │   ├── transaction.routes.ts  # single and bulk status changes
-│   ├── signing.routes.ts      # tablet sessions and device lock
+│   ├── signing.routes.ts      # signing sessions and device lock
 │   ├── student.routes.ts      # search, directory, create, import
 │   ├── report.routes.ts       # JSON preview and xlsx exports
 │   ├── audit.routes.ts
@@ -84,7 +84,7 @@ client/src/
 ├── App.tsx                # Routes: /login, /sign, /staff, /admin/*
 ├── components/
 │   ├── layout/AppLayout.tsx          # Top bar, menu drawer, timeout, heartbeat
-│   ├── transactions/                 # TransactionTable, dialogs, ResetTabletButton
+│   ├── transactions/                 # TransactionTable, dialogs, ResetSignDeviceButton
 │   ├── students/                     # Autocomplete, AddStudentDialog, BulkImportDialog
 │   └── ui/                           # Button, Dialog, TopScrollContainer, ...
 ├── pages/                 # One component per screen
@@ -106,16 +106,16 @@ erDiagram
 
 | Table | Key fields | Notes |
 |---|---|---|
-| `User` | `name`, `username`, `passwordHash`, `role` (`admin`/`staff`), `status`, `lastActiveAt` | `lastActiveAt` is the staff-activity signal used by the tablet. |
+| `User` | `name`, `username`, `passwordHash`, `role` (`admin`/`staff`), `status`, `lastActiveAt` | `lastActiveAt` is the staff-activity signal used by the sign device. |
 | `Student` | `studentNumber` (unique), names, `email` (BU email), `sex` (`M`/`F`), `contactNumber`, `course`, `yearLevel`, `active`, `isAlumni` | Alumni use `yearLevel = 0`. Not-enrolled students (`active = false`) are reported with year level `-1` (`NOT_ENROLLED_YEAR_LEVEL`). Manually added records without a student number get `MANUAL-<id>`. |
 | `Transaction` | `studentId`, snapshot fields (`studentName`, `studentCourse`, `studentYearLevel`), `docCOR`, `docCOG`, `docGMC`, `docAUTH`, `docOTR`, `others`, `othersCount`, `status`, prepared/reviewed/released fields, `duration`, `signature` | Student details are copied at creation so later roster changes don't rewrite history. `signature` is a PNG data URL. |
 | `AuditLog` | `transactionId`, `action`, `previousStatus`, `newStatus`, `performedBy`, `performedByName`, `timestamp` | One row per status change. |
 | `SigningSession` | `transactionId`, `transactionIds[]`, `token`, `releasedTo`, `liveSignature`, `status`, `consentAt`, `completedAt` | One session can cover several transactions for one claimant. |
-| `TabletLock` | `id` (always `"tablet"`), `deviceId`, `lastSeenAt` | Single row naming the one device allowed to sign. |
+| `SignDeviceLock` | `id` (always `"sign-device"`), `deviceId`, `lastSeenAt` | Single row naming the one device allowed to sign. |
 
 Document counts are stored as one integer column per type rather than JSON, which keeps the logbook totals simple to compute. The API exposes them as a `requestedDocuments` object (`{ COR, COG, GMC, AUTH, OTR }`); `utils/doc-mapper.ts` converts between the two shapes.
 
-**Migrations** live in `server/prisma/migrations/`. The v2 migration (`20260917000000_v2_updates`) renames `docCMC` to `docGMC` with `RENAME COLUMN`, so existing counts are kept. It also adds the new student, user and signing columns and creates `TabletLock`.
+**Migrations** live in `server/prisma/migrations/`. The v2 migration (`20260917000000_v2_updates`) renames `docCMC` to `docGMC` with `RENAME COLUMN`, so existing counts are kept. It also adds the new student, user and signing columns and creates `SignDeviceLock`.
 
 ## 4. Transaction workflow
 
@@ -164,19 +164,19 @@ There is no separate view for unclaimed documents: a range plus `status=Ready fo
 
 **Time zone.** Dates are Philippine calendar days (UTC+8) regardless of where the server runs. `phDayRange()` in `shared/constants.ts` converts `YYYY-MM-DD` into `[day 00:00 +08:00, next day 00:00 +08:00)`. Transaction lists, the audit log and reports all use it. On the client, `lib/date.ts` computes "today" with the `Asia/Manila` time zone.
 
-## 5. Tablet signing
+## 5. Signing on the sign device
 
-A claimant signs on a separate tablet that has no login of its own; it is gated by the device lock and a live staff session instead (see 5.1). Staff start the signing from the Release dialog, and the tablet picks it up by polling.
+A claimant signs on a separate sign device that has no login of its own; it is gated by the device lock and a live staff session instead (see 5.1). Staff start the signing from the Release dialog, and the sign device picks it up by polling.
 
 ```mermaid
 sequenceDiagram
   participant S as Staff PC
   participant API
-  participant T as Tablet (/sign)
-  T->>API: POST /signing/tablet/claim (X-Tablet-Device)
+  participant T as Sign device (/sign)
+  T->>API: POST /signing/device/claim (X-Sign-Device)
   S->>API: POST /signing/sessions {transactionIds, releasedTo}
   loop every 500 ms
-    T->>API: GET /signing/tablet/current
+    T->>API: GET /signing/device/current
   end
   API-->>T: session {token, releasedTo, studentNames, count}
   loop every 250 ms while drawing
@@ -187,7 +187,7 @@ sequenceDiagram
   end
   T->>API: POST /signing/sessions/:token/sign {signature, consent: true}
   S->>API: POST /transactions/bulk/release {ids, releasedTo, signature, sessionId}
-  T->>API: GET /signing/tablet/status/:token → confirmed
+  T->>API: GET /signing/device/status/:token → confirmed
 ```
 
 **Session rules**
@@ -197,18 +197,18 @@ sequenceDiagram
 - Staff can cancel a session until they confirm it.
 - One session can cover up to 200 Ready-for-Release transactions for the same claimant, which is how one block representative claims for the whole block. The signature is saved to all of them.
 
-**Data Privacy consent.** The tablet shows a consent checkbox that refers to the Data Privacy Act of 2012 (RA 10173). The Done button stays disabled until it is ticked, and it resets for every session. The server also rejects a signature unless the request includes `consent: true`, and it stores the time in `SigningSession.consentAt`.
+**Data Privacy consent.** The sign page first shows a Data Privacy notice that refers to the Data Privacy Act of 2012 (RA 10173). The signature pad appears only after the claimant taps **I Agree**, and consent resets for every session. The server also rejects a signature unless the request includes `consent: true`, and it stores the time in `SigningSession.consentAt`.
 
 **Transparent signatures.** The signature pad has no background fill, so `toDataURL()` produces a PNG with a transparent background. This is what lets the BUP logbook show the signature like an e-signature. Do not add a `backgroundColor` to `SignaturePad`.
 
 ### 5.1 Two conditions, both enforced on the server
 
-The tablet has **no login of its own**. Every tablet endpoint (`tablet/current`, `sessions/:token/progress`, `sessions/:token/sign`, `tablet/status/:token`) runs the `requireTabletDevice` guard, which checks both conditions in order:
+The sign device has **no login of its own**. Every sign device endpoint (`device/current`, `sessions/:token/progress`, `sessions/:token/sign`, `device/status/:token`) runs the `requireSignDevice` guard, which checks both conditions in order:
 
-1. **Device lock** — the request carries the `X-Tablet-Device` header of the device holding the `TabletLock` row, otherwise `423 not_claimed`.
+1. **Device lock** — the request carries the `X-Sign-Device` header of the device holding the `SignDeviceLock` row, otherwise `423 not_claimed`.
 2. **Live staff session** — `isStaffActive()`, otherwise `503 no_active_staff`.
 
-The lock itself: the tablet page creates a random device ID on first open and keeps it in `localStorage`. `POST /api/signing/tablet/claim` grants the lock when no device holds it, when this device already holds it, or when the holder hasn't been seen for 60 s (`LOCK_STALE_MS`); otherwise `423 locked`. The claim uses a conditional `updateMany` followed by `createMany({ skipDuplicates: true })`, so two devices claiming at the same moment cannot both win. The guard refreshes `lastSeenAt` at most every 10 s. Staff or admin can free it with **Reset Sign Device** (`DELETE /api/signing/tablet/lock`, login required).
+The lock itself: the sign device page creates a random device ID on first open and keeps it in `localStorage`. `POST /api/signing/device/claim` grants the lock when no device holds it, when this device already holds it, or when the holder hasn't been seen for 60 s (`LOCK_STALE_MS`); otherwise `423 locked`. The claim uses a conditional `updateMany` followed by `createMany({ skipDuplicates: true })`, so two devices claiming at the same moment cannot both win. The guard refreshes `lastSeenAt` at most every 10 s. Staff or admin can free it with **Reset Sign Device** (`DELETE /api/signing/device/lock`, login required).
 
 Because the lock goes to whichever device claims it first, someone who opens the page before the real one can take it; Reset Sign Device is the recovery.
 
@@ -216,13 +216,13 @@ Because the lock goes to whichever device claims it first, someone who opens the
 
 `isStaffActive()` counts users with `role: 'staff'`, `status: 'active'` and a `lastActiveAt` within 3 minutes (`STAFF_ACTIVE_MS`), cached for 10 s. **Admin sessions do not count**, since an admin cannot release documents.
 
-`lastActiveAt` comes from the staff member's own requests, not a heartbeat: `authenticate` calls `touchActivity()` (in `services/auth.service.ts`) after verifying a token, writing at most once a minute per user. An open dashboard polls `/api/transactions` every 5 s and the Release dialog polls the session every 200 ms, so a staff member who is logged in stays marked active, including while they stand back and watch the claimant sign. Logging in sets the marker; `POST /api/auth/logout` clears it, so the tablet goes inactive within the 10-second cache window.
+`lastActiveAt` comes from the staff member's own requests, not a heartbeat: `authenticate` calls `touchActivity()` (in `services/auth.service.ts`) after verifying a token, writing at most once a minute per user. An open dashboard polls `/api/transactions` every 5 s and the Release dialog polls the session every 200 ms, so a staff member who is logged in stays marked active, including while they stand back and watch the claimant sign. Logging in sets the marker; `POST /api/auth/logout` clears it, so the sign device goes inactive within the 10-second cache window.
 
 The sign device shows "Device Already in Use" for `423` and "Signature Pad Inactive — Staff login required" for `503`, retrying every 3 seconds until both conditions hold again.
 
 ### 5.3 Abandoned sessions
 
-A session that a claimant signed but nobody confirmed expires like a pending one, after `SESSION_TIMEOUT_MS`, so it cannot block tablet signing for good. Its signature is already saved on the transactions. Confirming more than 10 minutes after the claimant signs therefore needs a fresh tablet signature.
+A session that a claimant signed but nobody confirmed expires like a pending one, after `SESSION_TIMEOUT_MS`, so it cannot block signing for good. Its signature is already saved on the transactions. Confirming more than 10 minutes after the claimant signs therefore needs a fresh signature.
 
 ## 6. Students
 
@@ -270,7 +270,7 @@ The workbooks are built by `utils/logbook-xlsx.ts` with ExcelJS:
 | Input validation | Zod schemas from `@rtams/shared` on every write |
 | Brute force | Login is rate-limited to 10 requests per minute per IP when running as a normal server. This limit is in memory, so it does not apply on Vercel. |
 | CORS | Only origins listed in `CORS_ORIGIN` |
-| Tablet endpoints | No login, but limited to the device holding the lock and to times when staff are active; session tokens are 32 random bytes |
+| Sign device endpoints | No login, but limited to the device holding the lock and to times when staff are active; session tokens are 32 random bytes |
 | Personal data | Consent is required and timestamped before a signature is stored |
 | Audit | Every status change records who did it and when |
 
@@ -297,11 +297,11 @@ The workbooks are built by `utils/logbook-xlsx.ts` with ExcelJS:
 | GET · POST · PATCH | `/api/users`, `/api/users/:id`, `/api/users/:id/reset-password` | admin |
 | POST | `/api/signing/sessions` | staff |
 | GET · DELETE | `/api/signing/sessions/:id` | staff |
-| POST | `/api/signing/tablet/claim` | tablet (device ID header) |
-| DELETE | `/api/signing/tablet/lock` | logged in |
-| GET | `/api/signing/tablet/current` | registered tablet, active staff |
-| POST | `/api/signing/sessions/:token/progress` · `/sign` | registered tablet, active staff |
-| GET | `/api/signing/tablet/status/:token` | registered tablet, active staff |
+| POST | `/api/signing/device/claim` | sign device (device ID header) |
+| DELETE | `/api/signing/device/lock` | logged in |
+| GET | `/api/signing/device/current` | registered sign device, active staff |
+| POST | `/api/signing/sessions/:token/progress` · `/sign` | registered sign device, active staff |
+| GET | `/api/signing/device/status/:token` | registered sign device, active staff |
 
 ## 10. Configuration
 
@@ -319,7 +319,7 @@ The timing values are constants in `signing.routes.ts`:
 | Constant | Value | Meaning |
 |---|---|---|
 | `SESSION_TIMEOUT_MS` | 10 min | Session lifetime, pending or signed-but-unconfirmed |
-| `LOCK_STALE_MS` | 60 s | How long before another device can take over the tablet |
+| `LOCK_STALE_MS` | 60 s | How long before another device can take over the sign device |
 | `LOCK_TOUCH_MS` | 10 s | Throttle on lock heartbeat writes |
 | `STAFF_ACTIVE_MS` | 3 min | How recent a staff member's last request must be |
 | `STAFF_CHECK_CACHE_MS` | 10 s | Cache on the staff-active lookup |
@@ -331,7 +331,7 @@ There is no automated test suite yet. The v2 changes were checked as follows:
 - `npm run build` type-checks and builds all three packages.
 - All migrations were applied to an empty PostgreSQL-compatible database. `prisma migrate diff` against `schema.prisma` reported no differences.
 - An end-to-end API script ran 34 checks through `fastify.inject()`:
-  - tablet lock and staff-activity rules;
+  - sign device lock and staff-activity rules;
   - consent enforcement;
   - student and alumni creation;
   - roster import that leaves alumni active;
@@ -349,8 +349,8 @@ There is no automated test suite yet. The v2 changes were checked as follows:
 
 ## 12. Known limitations and future work
 
-- **Polling.** The staff release dialog polls every 200 ms and the tablet every 250–500 ms. That is simple and works on serverless, but it produces many small requests. Server-sent events or Supabase Realtime would reduce the load.
+- **Polling.** The staff release dialog polls every 200 ms and the sign device every 250–500 ms. That is simple and works on serverless, but it produces many small requests. Server-sent events or Supabase Realtime would reduce the load.
 - **No login rate limit on Vercel.** The login limit only applies when the API runs as a normal server. A shared store such as Redis would be needed to enforce it on Vercel.
-- **One signing tablet.** The lock is a single row. Supporting several counters would mean one lock row per counter, with sessions assigned to a counter.
+- **One sign device.** The lock is a single row. Supporting several counters would mean one lock row per counter, with sessions assigned to a counter.
 - **Page size.** The dashboards load up to 50 transactions for the selected day. Busier days would need pagination in the table.
 - **No automated tests.** The verification script used for v2 could be turned into a permanent integration test suite.

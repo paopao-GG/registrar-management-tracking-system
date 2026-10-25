@@ -146,7 +146,7 @@ export const bulkStudentIdsSchema = z.object({
 export const bulkReleaseSchema = bulkIdsSchema.extend({
   releasedTo: z.string().trim().min(1, 'Claimer name is required'),
   signature: z.string().min(1, 'Signature is required'),
-  // Tablet signing session to mark confirmed along with the release.
+  // signing session to mark confirmed along with the release.
   sessionId: z.string().min(1).optional(),
 });
 

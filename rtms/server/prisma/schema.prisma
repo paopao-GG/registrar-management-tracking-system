@@ -122,9 +122,9 @@ model SigningSession {
   @@index([status])
 }
 
-// Single row: the one device allowed to use the tablet sign page.
-model TabletLock {
-  id         String   @id @default("tablet")
+// Single row: the one device allowed to use the sign page.
+model SignDeviceLock {
+  id         String   @id @default("sign-device")
   deviceId   String
   lastSeenAt DateTime
 }

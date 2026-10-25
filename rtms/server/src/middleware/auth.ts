@@ -18,7 +18,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     const token = header.slice(7);
     request.user = verifyToken(token);
 
-    // Keeps the signing tablet available while this user works.
+    // Keeps the sign device available while this user works.
     touchActivity(request.user.id);
   } catch {
     return reply.status(401).send({ error: 'Invalid or expired token' });

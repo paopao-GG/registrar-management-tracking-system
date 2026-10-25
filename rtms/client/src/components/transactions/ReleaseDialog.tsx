@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
-import { CheckCircle2, PackageCheck, TabletSmartphone } from 'lucide-react';
+import { CheckCircle2, PackageCheck, Smartphone } from 'lucide-react';
 import api from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { ReleaseTarget } from './TransactionTable';
 
 interface Props {
@@ -28,8 +29,10 @@ export function ReleaseDialog({
 }: Props) {
   const [releasedTo, setReleasedTo] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const suggestionListRef = useRef<HTMLDivElement>(null);
 
-  const [sendingToTablet, setSendingToTablet] =
+  const [sendingToDevice, setSendingToDevice] =
     useState(false);
 
   const [sessionId, setSessionId] = useState<string | null>(
@@ -64,7 +67,7 @@ export function ReleaseDialog({
     if (open) {
       setReleasedTo('');
       setSuggestions([]);
-      setSendingToTablet(false);
+      setSendingToDevice(false);
       setSessionId(null);
       setSignatureReceived(false);
       setSignature(null);
@@ -114,7 +117,7 @@ export function ReleaseDialog({
 
           setSignature(finalSignature);
           setLiveSignature(finalSignature);
-          setSendingToTablet(false);
+          setSendingToDevice(false);
         }
 
         /*
@@ -126,13 +129,13 @@ export function ReleaseDialog({
           data.status === 'cancelled'
         ) {
           setSessionId(null);
-          setSendingToTablet(false);
+          setSendingToDevice(false);
           setSignatureReceived(false);
           setSignature(null);
           setLiveSignature(null);
 
           toast.info(
-            'The tablet signing session has ended.'
+            'The signing session has ended.'
           );
         }
       } catch (err) {
@@ -161,9 +164,9 @@ export function ReleaseDialog({
   }, [sessionId]);
 
   /*
-   * Send the claimant's name and transactions to the tablet.
+   * Send the claimant's name and transactions to the sign device.
    */
-  const handleSendToTablet = async () => {
+  const handleSendToDevice = async () => {
     if (count === 0) return;
 
     if (!releasedTo.trim()) {
@@ -171,7 +174,7 @@ export function ReleaseDialog({
       return;
     }
 
-    setSendingToTablet(true);
+    setSendingToDevice(true);
     setSuggestions([]);
 
     try {
@@ -188,11 +191,11 @@ export function ReleaseDialog({
       setSignature(null);
       setLiveSignature(null);
     } catch (err: any) {
-      setSendingToTablet(false);
+      setSendingToDevice(false);
 
       toast.error(
         err.response?.data?.error ||
-          'Failed to send the document to the tablet.'
+          'Failed to send the document to the sign device.'
       );
     }
   };
@@ -212,7 +215,7 @@ export function ReleaseDialog({
 
     if (!signatureReceived || !signature) {
       toast.warning(
-        'Please have the claimant sign on the tablet first.'
+        'Please have the claimant sign first.'
       );
       return;
     }
@@ -223,7 +226,7 @@ export function ReleaseDialog({
       /*
        * Release every transaction with the one claimant
        * signature. Passing the session also confirms it,
-       * which tells the tablet in the same commit.
+       * which tells the sign device in the same commit.
        */
       await api.post('/transactions/bulk/release', {
         ids: transactionIds,
@@ -256,9 +259,9 @@ export function ReleaseDialog({
   };
 
   /*
-   * Cancel tablet signing.
+   * Cancel signing.
    */
-  const handleCancelTablet = async () => {
+  const handleCancelSigning = async () => {
     if (!sessionId) return;
 
     try {
@@ -267,13 +270,13 @@ export function ReleaseDialog({
       );
     } catch (err) {
       console.error(
-        'Failed to cancel tablet session',
+        'Failed to cancel signing session',
         err
       );
     }
 
     setSessionId(null);
-    setSendingToTablet(false);
+    setSendingToDevice(false);
     setSignatureReceived(false);
     setSignature(null);
     setLiveSignature(null);
@@ -306,13 +309,59 @@ export function ReleaseDialog({
     matchSuggestions(value);
   };
 
+  // A new list of suggestions starts with nothing highlighted.
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [suggestions]);
+
+  // Keep the highlighted name in view while moving with the arrow keys.
+  useEffect(() => {
+    if (highlightedIndex < 0) return;
+
+    suggestionListRef.current
+      ?.querySelector(`[data-index="${highlightedIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex]);
+
+  const handleClaimantKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === 'Escape') {
+      setSuggestions([]);
+      return;
+    }
+
+    if (suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((current) =>
+        current < suggestions.length - 1 ? current + 1 : 0
+      );
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((current) =>
+        current > 0 ? current - 1 : suggestions.length - 1
+      );
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSelectSuggestion(
+        suggestions[Math.max(highlightedIndex, 0)]
+      );
+    }
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
         if (!v) {
           if (sessionId) {
-            handleCancelTablet();
+            handleCancelSigning();
           }
 
           setReleasedTo('');
@@ -364,36 +413,40 @@ export function ReleaseDialog({
                 onFocus={() =>
                   matchSuggestions(releasedTo)
                 }
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setSuggestions([]);
-                  }
-
-                  if (
-                    e.key === 'Enter' &&
-                    suggestions.length > 0
-                  ) {
-                    e.preventDefault();
-                    handleSelectSuggestion(
-                      suggestions[0]
-                    );
-                  }
-                }}
+                onKeyDown={handleClaimantKeyDown}
+                role="combobox"
+                aria-expanded={suggestions.length > 0}
+                aria-autocomplete="list"
                 placeholder="Enter claimer name"
                 disabled={
-                  sendingToTablet ||
+                  sendingToDevice ||
                   signatureReceived
                 }
                 required
               />
 
               {suggestions.length > 0 && (
-                <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-card py-1 shadow-float animate-in fade-in-0 slide-in-from-top-1">
-                  {suggestions.map((name) => (
+                <div
+                  ref={suggestionListRef}
+                  role="listbox"
+                  className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-card py-1 shadow-float animate-in fade-in-0 slide-in-from-top-1"
+                >
+                  {suggestions.map((name, index) => (
                     <button
                       key={name}
                       type="button"
-                      className="w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                      role="option"
+                      data-index={index}
+                      aria-selected={highlightedIndex === index}
+                      className={cn(
+                        'w-full border-l-2 px-3 py-2 text-left text-sm transition-colors',
+                        highlightedIndex === index
+                          ? 'border-seal bg-seal/10'
+                          : 'border-transparent hover:bg-accent'
+                      )}
+                      onMouseMove={() =>
+                        setHighlightedIndex(index)
+                      }
                       onClick={() =>
                         handleSelectSuggestion(name)
                       }
@@ -420,15 +473,15 @@ export function ReleaseDialog({
                   type="button"
                   className="w-full"
                   onClick={
-                    handleSendToTablet
+                    handleSendToDevice
                   }
-                  loading={sendingToTablet}
+                  loading={sendingToDevice}
                   disabled={!releasedTo.trim()}
                 >
-                  {!sendingToTablet && <TabletSmartphone className="h-4 w-4" />}
-                  {sendingToTablet
-                    ? 'Sending to Tablet...'
-                    : 'Sign on Tablet'}
+                  {!sendingToDevice && <Smartphone className="h-4 w-4" />}
+                  {sendingToDevice
+                    ? 'Sending to Sign Device...'
+                    : 'Send to Sign Device'}
                 </Button>
               )}
 
@@ -446,7 +499,7 @@ export function ReleaseDialog({
 
                     <p className="mt-1 text-sm text-muted-foreground">
                       The claimant can sign on
-                      the tablet.
+                      the sign device.
                     </p>
                   </div>
 
@@ -478,11 +531,11 @@ export function ReleaseDialog({
                     variant="outline"
                     className="w-full"
                     onClick={
-                      handleCancelTablet
+                      handleCancelSigning
                     }
                     disabled={loading}
                   >
-                    Cancel Tablet Signing
+                    Cancel Signing
                   </Button>
                 </div>
               )}

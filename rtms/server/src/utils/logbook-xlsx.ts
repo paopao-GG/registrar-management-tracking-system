@@ -206,7 +206,7 @@ export async function buildArtaWorkbook(rows: ArtaReportRow[]) {
     row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
     row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // Signatures are transparent PNGs from the tablet canvas.
+    // Signatures are transparent PNGs from the sign page canvas.
     if (r.signature?.startsWith('data:image/png;base64,')) {
       const imageId = workbook.addImage({
         base64: r.signature,
@@ -334,7 +334,7 @@ export async function buildBupWorkbook(rows: BupReportRow[]) {
       totals[d] += r[d];
     });
 
-    // Signatures are transparent PNGs from the tablet canvas.
+    // Signatures are transparent PNGs from the sign page canvas.
     if (r.signature?.startsWith('data:image/png;base64,')) {
       const imageId = workbook.addImage({
         base64: r.signature,

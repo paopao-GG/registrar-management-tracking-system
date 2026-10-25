@@ -10,7 +10,7 @@
 | **Last Updated** | September 17, 2026 |
 | **Author** | — |
 
-> **Revision — v2 (September 17, 2026).** This PRD was updated to match the implemented system after the v2 feedback round ([v2.md](v2.md)): the four-step status flow, bulk actions, per-day dashboards, alumni requests, the ARTA and BUP Excel logbooks, the single-device signing tablet with Data Privacy consent, and the PostgreSQL/Vercel stack. The design is described in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
+> **Revision — v2 (September 17, 2026).** This PRD was updated to match the implemented system after the v2 feedback round ([v2.md](v2.md)): the four-step status flow, bulk actions, per-day dashboards, alumni requests, the ARTA and BUP Excel logbooks, the single-device sign device with Data Privacy consent, and the PostgreSQL/Vercel stack. The design is described in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
 
 ---
 
@@ -145,7 +145,7 @@ Reports generated on demand
 | F-04 | Student Database | Must | Roster import (CSV/XLSX) as the source of enrolled students; manual add; autocomplete search; alumni requesters added from the request form |
 | F-05 | Status Tracking | Must | Pending → Processing → Ready for Release → Released |
 | F-06 | Document Review/Signing | Must | Only the Registrar (Admin) can mark documents as reviewed/signed. Documents are always approved — no rejection flow. |
-| F-07 | Document Release | Must | Staff records the claimant name; the claimant signs on the signing tablet after giving Data Privacy consent; auto-timestamp. One signature can release several requests. |
+| F-07 | Document Release | Must | Staff records the claimant name; the claimant signs on the sign device after giving Data Privacy consent; auto-timestamp. One signature can release several requests. |
 | F-08 | Duration Calculation | Must | Auto-calculate elapsed time from Prepared timestamp to Signed timestamp (calendar time). This measures how long the document waited for the Registrar's signature. |
 | F-09 | Admin Dashboard | Must | Summary cards and all staff's requests for a selected day, status filter, bulk Sign |
 | F-10 | Summary Reports | Must | By date range; export the ARTA-Logbook and BUP-Logbook as Excel (.xlsx) |
@@ -161,7 +161,7 @@ Reports generated on demand
 | F-15 | Print transaction receipt | Generate printable receipt for student |
 | F-16 | Email notifications | Notify staff when documents are ready for release |
 | F-17 | Dashboard charts | Visual charts for trends (daily/weekly/monthly) |
-| F-18 | Mobile-responsive layout | Optimized for tablet use at service counter |
+| F-18 | Mobile-responsive layout | Optimized for phones and other devices at the service counter |
 
 ### V2 Features (implemented September 2026)
 
@@ -176,7 +176,7 @@ Reports generated on demand
 | V2-07 | ARTA and BUP logbooks | Excel exports with the campus header, document sub-columns, captured signatures and totals |
 | V2-08 | Audit log totals | Total count, Today view, Transaction ID column removed |
 | V2-09 | Data Privacy consent | Claimant must tick a consent box before the signature is accepted |
-| V2-10 | Tablet security | Sign page usable on one device only and only while staff are active |
+| V2-10 | Sign device security | Sign page usable on one device only and only while staff are active |
 
 ### Out of Scope
 - Student-facing portal or self-service
@@ -214,8 +214,8 @@ Sign → Status = Ready for Release, reviewer + timestamp recorded, duration cal
 **Flow 4: Release Document (Staff)**
 ```
 Staff Dashboard → select one or more Ready for Release requests →
-Enter claimant name → Sign on Tablet →
-Claimant ticks Data Privacy consent and signs on the tablet →
+Enter claimant name → Send to Sign Device →
+Claimant agrees to the Data Privacy notice and signs on the sign device →
 Staff confirms → Status = Released (one signature for all selected requests)
 ```
 
@@ -223,7 +223,7 @@ Staff confirms → Status = Released (one signature for all selected requests)
 
 ```
 ├── Login Page
-├── Signing Tablet (/sign — no login; one device only, active only while staff are active)
+├── Sign Page (/sign — no login; one device only, active only while staff are active)
 ├── Menu (top-left) → pages below
 ├── Staff Dashboard
 │   ├── Summary cards (selected day)
@@ -252,7 +252,7 @@ Staff confirms → Status = Released (one signature for all selected requests)
 ## 7. Technical Considerations
 
 ### Platform
-- **Web application** (browser-based), accessible on desktop and tablets
+- **Web application** (browser-based), accessible on desktop and mobile devices
 - Modern browsers: Chrome, Firefox, Edge (latest 2 versions)
 
 ### Tech Stack
@@ -276,7 +276,7 @@ Staff confirms → Status = Released (one signature for all selected requests)
 | `Transaction` | studentId, student snapshot (name, course, year), docCOR, docCOG, docGMC, docAUTH, docOTR, others, othersCount, status, preparedBy/At, reviewedBy/At, duration, releasedTo, releasedAt, signature |
 | `AuditLog` | transactionId, action, previousStatus, newStatus, performedBy, timestamp |
 | `SigningSession` | transactionIds, token, releasedTo, liveSignature, status, consentAt |
-| `TabletLock` | deviceId, lastSeenAt (single row: the registered signing tablet) |
+| `SignDeviceLock` | deviceId, lastSeenAt (single row: the registered sign device) |
 
 ### Security
 - Passwords hashed with bcrypt (min 10 salt rounds)
@@ -307,11 +307,11 @@ Staff confirms → Status = Released (one signature for all selected requests)
 | POST | `/api/users` | Create staff account |
 | PATCH | `/api/users/:id` | Update staff |
 | GET | `/api/audit-logs` | View audit logs with total (admin) |
-| POST | `/api/signing/sessions` | Send a release to the signing tablet (staff) |
-| POST | `/api/signing/tablet/claim` | Register this device as the signing tablet |
-| DELETE | `/api/signing/tablet/lock` | Reset the signing tablet |
+| POST | `/api/signing/sessions` | Send a release to the sign device (staff) |
+| POST | `/api/signing/device/claim` | Register this device as the sign device |
+| DELETE | `/api/signing/device/lock` | Reset the sign device |
 
-The full list, including the tablet polling endpoints, is in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md#9-api-reference).
+The full list, including the sign device polling endpoints, is in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md#9-api-reference).
 
 ---
 

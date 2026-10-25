@@ -18,16 +18,16 @@ const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
  */
 const SESSION_ABANDONED_MS = 2 * 60 * 1000;
 
-// A tablet that stops polling for this long loses its lock.
+// A sign device that stops polling for this long loses its lock.
 const LOCK_STALE_MS = 60 * 1000;
-// Throttle lock heartbeat writes; the tablet polls every 500 ms.
+// Throttle lock heartbeat writes; the sign device polls every 500 ms.
 const LOCK_TOUCH_MS = 10 * 1000;
 // A staff member must have used the app within this window.
 const STAFF_ACTIVE_MS = 3 * 60 * 1000;
 const STAFF_CHECK_CACHE_MS = 10 * 1000;
 
-const LOCK_ID = 'tablet';
-const DEVICE_HEADER = 'x-tablet-device';
+const LOCK_ID = 'sign-device';
+const DEVICE_HEADER = 'x-sign-device';
 const MAX_SESSION_TRANSACTIONS = 200;
 
 const OPEN_STATUSES = ['pending', 'signed'];
@@ -35,8 +35,8 @@ const OPEN_STATUSES = ['pending', 'signed'];
 declare module 'fastify' {
   interface FastifyRequest {
     // When the signing device was last seen, read before this request's own
-    // heartbeat overwrote it. Set by requireTabletDevice.
-    tabletLastSeenAt?: Date;
+    // heartbeat overwrote it. Set by requireSignDevice.
+    deviceLastSeenAt?: Date;
   }
 }
 
@@ -64,12 +64,12 @@ function isAbandoned(
 }
 
 /*
- * The same question asked by a tablet endpoint, where the preHandler has
+ * The same question asked by a sign device endpoint, where the preHandler has
  * already stamped the lock and the pre-heartbeat reading is the only
  * honest one left.
  */
 function deviceWasAway(request: FastifyRequest) {
-  const lastSeen = request.tabletLastSeenAt;
+  const lastSeen = request.deviceLastSeenAt;
   return !!lastSeen && Date.now() - lastSeen.getTime() > SESSION_ABANDONED_MS;
 }
 
@@ -126,7 +126,7 @@ let staffCheck = { at: 0, active: false };
  * auth.service.ts) and cleared when they log out.
  *
  * Only the staff role counts: an admin cannot release documents,
- * so an admin session does not activate the tablet.
+ * so an admin session does not activate the sign device.
  */
 async function isStaffActive() {
   const now = Date.now();
@@ -148,23 +148,23 @@ async function isStaffActive() {
 }
 
 /*
- * Guard for every tablet endpoint:
+ * Guard for every sign device endpoint:
  * - only the device holding the lock may use it;
  * - only while a staff member is active.
  */
-async function requireTabletDevice(
+async function requireSignDevice(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
   const deviceId = getDeviceId(request);
 
-  const lock = await prisma.tabletLock.findUnique({
+  const lock = await prisma.signDeviceLock.findUnique({
     where: { id: LOCK_ID },
   });
 
   if (!deviceId || !lock || lock.deviceId !== deviceId) {
     return reply.status(423).send({
-      error: 'This device is not the registered signing tablet.',
+      error: 'This device is not the registered sign device.',
       reason: 'not_claimed',
     });
   }
@@ -174,10 +174,10 @@ async function requireTabletDevice(
    * away keeps its lock, so this gap is the only way a handler can tell a
    * reconnect from a device that was here all along.
    */
-  request.tabletLastSeenAt = lock.lastSeenAt;
+  request.deviceLastSeenAt = lock.lastSeenAt;
 
   if (Date.now() - lock.lastSeenAt.getTime() > LOCK_TOUCH_MS) {
-    await prisma.tabletLock.update({
+    await prisma.signDeviceLock.update({
       where: { id: LOCK_ID },
       data: { lastSeenAt: new Date() },
     });
@@ -203,7 +203,7 @@ function sessionTransactionIds(session: {
 export async function signingRoutes(app: FastifyInstance) {
   /*
    * STAFF:
-   * Create a tablet signing session for one or more
+   * Create a signing session for one or more
    * transactions claimed by the same person.
    */
   app.post(
@@ -268,12 +268,12 @@ export async function signingRoutes(app: FastifyInstance) {
       ) {
         return reply.status(400).send({
           error:
-            'All transactions must be Ready for Release before tablet signing.',
+            'All transactions must be Ready for Release before signing.',
         });
       }
 
       /*
-       * Find existing tablet sessions.
+       * Find existing signing sessions.
        *
        * Both "pending" and "signed" sessions are active.
        *
@@ -295,7 +295,7 @@ export async function signingRoutes(app: FastifyInstance) {
       /*
        * Expire old sessions. A signed one that nobody confirmed
        * expires too, so an abandoned signing does not block the
-       * tablet for good. Its signature is already saved on the
+       * sign device for good. Its signature is already saved on the
        * transactions either way.
        *
        * A session whose device stopped checking in expires here as
@@ -304,7 +304,7 @@ export async function signingRoutes(app: FastifyInstance) {
        * request does not touch the lock, so its heartbeat still says
        * when the device was really last seen.
        */
-      const lock = await prisma.tabletLock.findUnique({
+      const lock = await prisma.signDeviceLock.findUnique({
         where: { id: LOCK_ID },
       });
 
@@ -330,7 +330,7 @@ export async function signingRoutes(app: FastifyInstance) {
       if (activeSession) {
         return reply.status(409).send({
           error:
-            'The tablet is currently in use. Please finish or confirm the current signing session first.',
+            'The sign device is currently in use. Please finish or confirm the current signing session first.',
         });
       }
 
@@ -392,7 +392,7 @@ export async function signingRoutes(app: FastifyInstance) {
        * the release dialog stops waiting on a signature nobody is giving
        * rather than spinning until SESSION_TIMEOUT_MS.
        */
-      const lock = await prisma.tabletLock.findUnique({
+      const lock = await prisma.signDeviceLock.findUnique({
         where: { id: LOCK_ID },
       });
 
@@ -471,14 +471,14 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * TABLET:
-   * Claim the signing tablet slot for this device.
+   * SIGN DEVICE:
+   * Claim the sign device slot for this device.
    *
    * Succeeds when no device holds the lock, when this device
    * already holds it, or when the holder stopped polling.
    */
   app.post(
-    '/api/signing/tablet/claim',
+    '/api/signing/device/claim',
     async (request, reply) => {
       const deviceId = getDeviceId(request);
 
@@ -495,11 +495,11 @@ export async function signingRoutes(app: FastifyInstance) {
        * heartbeat is this device's and no longer says whether the slot
        * had been sitting quiet.
        */
-      const previous = await prisma.tabletLock.findUnique({
+      const previous = await prisma.signDeviceLock.findUnique({
         where: { id: LOCK_ID },
       });
 
-      const taken = await prisma.tabletLock.updateMany({
+      const taken = await prisma.signDeviceLock.updateMany({
         where: {
           id: LOCK_ID,
           OR: [
@@ -529,7 +529,7 @@ export async function signingRoutes(app: FastifyInstance) {
       }
 
       // No lock yet: create it, unless another device just did.
-      const created = await prisma.tabletLock.createMany({
+      const created = await prisma.signDeviceLock.createMany({
         data: {
           id: LOCK_ID,
           deviceId,
@@ -554,10 +554,10 @@ export async function signingRoutes(app: FastifyInstance) {
 
   /*
    * STAFF / ADMIN:
-   * Release the tablet lock so another device can claim it.
+   * Release the sign device lock so another device can claim it.
    */
   app.delete(
-    '/api/signing/tablet/lock',
+    '/api/signing/device/lock',
     { preHandler: authenticate },
     async () => {
       /*
@@ -574,27 +574,27 @@ export async function signingRoutes(app: FastifyInstance) {
           where: { status: { in: OPEN_STATUSES } },
           data: { status: 'cancelled' },
         }),
-        prisma.tabletLock.deleteMany({
+        prisma.signDeviceLock.deleteMany({
           where: { id: LOCK_ID },
         }),
       ]);
 
-      return { message: 'Tablet lock reset' };
+      return { message: 'Sign device lock reset' };
     }
   );
 
   /*
-   * TABLET:
+   * SIGN DEVICE:
    * Find the current active signing session.
    *
    * This endpoint does not use a staff login; it is
-   * restricted to the device holding the tablet lock,
+   * restricted to the device holding the sign device lock,
    * and only while a staff member is active.
    *
    * IMPORTANT:
    * Both "pending" and "signed" sessions are returned.
    *
-   * This allows the tablet to show:
+   * This allows the sign device to show:
    *
    * "Signature Required"
    *
@@ -605,8 +605,8 @@ export async function signingRoutes(app: FastifyInstance) {
    * while waiting for staff confirmation.
    */
   app.get(
-    '/api/signing/tablet/current',
-    { preHandler: requireTabletDevice },
+    '/api/signing/device/current',
+    { preHandler: requireSignDevice },
     async (request, reply) => {
       const session =
         await prisma.signingSession.findFirst({
@@ -628,7 +628,7 @@ export async function signingRoutes(app: FastifyInstance) {
 
       /*
        * A signed session stays available for staff confirmation,
-       * but not forever: once it expires the tablet goes back to
+       * but not forever: once it expires the sign device goes back to
        * waiting instead of showing a signing nobody confirmed.
        *
        * The same goes for a device coming back from an internet drop
@@ -681,12 +681,12 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * TABLET:
+   * SIGN DEVICE:
    * Send the current signature drawing to the server.
    */
   app.post(
     '/api/signing/sessions/:token/progress',
-    { preHandler: requireTabletDevice },
+    { preHandler: requireSignDevice },
     async (request, reply) => {
       const { token } = request.params as {
         token: string;
@@ -756,12 +756,12 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * TABLET:
+   * SIGN DEVICE:
    * Submit the final signature.
    */
   app.post(
     '/api/signing/sessions/:token/sign',
-    { preHandler: requireTabletDevice },
+    { preHandler: requireSignDevice },
     async (request, reply) => {
       const { token } = request.params as {
         token: string;
@@ -872,12 +872,12 @@ export async function signingRoutes(app: FastifyInstance) {
   );
 
   /*
-   * TABLET:
+   * SIGN DEVICE:
    * Check whether staff has confirmed the signature.
    */
   app.get(
-    '/api/signing/tablet/status/:token',
-    { preHandler: requireTabletDevice },
+    '/api/signing/device/status/:token',
+    { preHandler: requireSignDevice },
     async (request, reply) => {
       const { token } = request.params as {
         token: string;
@@ -900,7 +900,7 @@ export async function signingRoutes(app: FastifyInstance) {
        * Releasing the documents confirms the session. If a
        * session is still "signed" but its documents are all
        * released, the confirmation was lost: finish it here
-       * so the tablet stops waiting.
+       * so the sign device stops waiting.
        */
       if (session.status === 'signed') {
         const ids = sessionTransactionIds(session);

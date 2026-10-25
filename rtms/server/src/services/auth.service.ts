@@ -9,7 +9,7 @@ const lastWriteAt = new Map<string, number>();
 
 /*
  * Marks the user as currently working, from their own requests.
- * The tablet sign page is only available while a staff member is
+ * The sign page is only available while a staff member is
  * active, so every authenticated request refreshes this.
  */
 export function touchActivity(userId: string) {
@@ -33,7 +33,7 @@ export function touchActivity(userId: string) {
 }
 
 /*
- * Ends the activity marker, so the tablet stops signing as soon
+ * Ends the activity marker, so the sign device stops signing as soon
  * as the staff member logs out.
  */
 export async function clearActivity(userId: string) {

@@ -3,13 +3,13 @@ import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import api from '@/lib/api';
-import { TabletSmartphone } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
 
 /*
  * Frees the sign-device lock so a different device
  * can open the sign page.
  */
-export function ResetTabletButton() {
+export function ResetSignDeviceButton() {
   const [loading, setLoading] = useState(false);
   const confirm = useConfirm();
   const toast = useToast();
@@ -28,7 +28,7 @@ export function ResetTabletButton() {
     setLoading(true);
 
     try {
-      await api.delete('/signing/tablet/lock');
+      await api.delete('/signing/device/lock');
       toast.success('Sign device reset', { description: 'Open the sign page on the signing device.' });
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to reset the sign device.');
@@ -44,7 +44,7 @@ export function ResetTabletButton() {
       onClick={handleReset}
       loading={loading}
     >
-      {!loading && <TabletSmartphone className="h-4 w-4" />}
+      {!loading && <Smartphone className="h-4 w-4" />}
       {loading ? 'Resetting...' : 'Reset Sign Device'}
     </Button>
   );

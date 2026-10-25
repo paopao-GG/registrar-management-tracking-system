@@ -143,7 +143,7 @@ export function bulkRelease(
   actor: Actor,
   sessionId?: string
 ) {
-  // Confirm the tablet session in the same commit, so the tablet
+  // Confirm the signing session in the same commit, so the sign device
   // never keeps waiting on a release that already happened.
   const confirmSession = sessionId
     ? [

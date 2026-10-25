@@ -8,9 +8,20 @@ import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
-import { AlertCircle, Check, CheckCircle2, Lock, PenLine, Send, UserX } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Eraser,
+  Lock,
+  PenLine,
+  RotateCw,
+  Send,
+  ShieldCheck,
+  UserX,
+} from 'lucide-react';
 
-interface TabletSession {
+interface SignSession {
   token: string;
   releasedTo: string;
   studentNames: string[];
@@ -24,18 +35,18 @@ interface TabletSession {
 }
 
 /*
- * Why the tablet cannot be used right now.
+ * Why the sign device cannot be used right now.
  * - locked: the sign page is open on another device.
  * - no_staff: no staff member is currently active.
  */
 type Availability = 'ok' | 'locked' | 'no_staff';
 
-const DEVICE_KEY = 'rtams_tablet_device';
+const DEVICE_KEY = 'rtams_sign_device';
 const SESSION_POLL_MS = 500;
 const UNAVAILABLE_POLL_MS = 3000;
 
 function createDeviceId() {
-  // randomUUID needs a secure context; the tablet may use plain HTTP on the LAN.
+  // randomUUID needs a secure context; the sign device may use plain HTTP on the LAN.
   if (typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -75,16 +86,16 @@ function describeError(err: any) {
   return 'Unable to connect to RTAMS.';
 }
 
-export function TabletSignPage() {
+export function SignPage() {
   const [deviceId] = useState(getDeviceId);
   const toast = useToast();
-  const tablet = { headers: { 'X-Tablet-Device': deviceId } };
+  const device = { headers: { 'X-Sign-Device': deviceId } };
 
   const [availability, setAvailability] =
     useState<Availability>('ok');
 
   const [session, setSession] =
-    useState<TabletSession | null>(null);
+    useState<SignSession | null>(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -112,9 +123,9 @@ export function TabletSignPage() {
   /*
    * Check for the current signing session.
    *
-   * The tablet checks frequently so a new signing
+   * The sign device checks frequently so a new signing
    * request appears with very little delay. While the
-   * tablet is unavailable it checks less often.
+   * sign device is unavailable it checks less often.
    */
   useEffect(() => {
     if (submitted || confirmed) return;
@@ -127,7 +138,7 @@ export function TabletSignPage() {
 
     const claimDevice = async () => {
       try {
-        await api.post('/signing/tablet/claim', null, tablet);
+        await api.post('/signing/device/claim', null, device);
         return true;
       } catch (err: any) {
         if (err.response?.status === 423) {
@@ -144,8 +155,8 @@ export function TabletSignPage() {
 
       try {
         const response = await api.get(
-          '/signing/tablet/current',
-          tablet
+          '/signing/device/current',
+          device
         );
 
         if (!mounted) return;
@@ -166,7 +177,7 @@ export function TabletSignPage() {
 
         /*
          * If the claimant already submitted the signature
-         * before the tablet page refreshed, keep the tablet
+         * before the sign page refreshed, keep it
          * on the Signature Submitted screen.
          */
         if (currentSession.status === 'signed') {
@@ -178,7 +189,7 @@ export function TabletSignPage() {
         const status = err.response?.status;
 
         if (status === 423) {
-          // Not (or no longer) the registered tablet: try to claim it.
+          // Not (or no longer) the registered sign device: try to claim it.
           try {
             const claimed = await claimDevice();
 
@@ -193,7 +204,7 @@ export function TabletSignPage() {
               setLoading(false);
             }
           } catch (claimErr) {
-            console.error('Failed to claim tablet', claimErr);
+            console.error('Failed to claim sign device', claimErr);
             if (!mounted) return;
             setError(describeError(claimErr));
             setLoading(false);
@@ -209,7 +220,7 @@ export function TabletSignPage() {
         }
 
         console.error(
-          'Failed to check tablet session',
+          'Failed to check signing session',
           err
         );
 
@@ -234,7 +245,7 @@ export function TabletSignPage() {
       mounted = false;
       clearInterval(interval);
     };
-    // `tablet` only wraps the stable deviceId.
+    // `device` only wraps the stable deviceId.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, confirmed, availability, deviceId]);
 
@@ -282,7 +293,7 @@ export function TabletSignPage() {
         await api.post(
           `/signing/sessions/${session.token}/progress`,
           { signature },
-          tablet
+          device
         );
 
         lastSent = signature;
@@ -356,8 +367,8 @@ export function TabletSignPage() {
 
       try {
         const response = await api.get(
-          `/signing/tablet/status/${session.token}`,
-          tablet
+          `/signing/device/status/${session.token}`,
+          device
         );
 
         if (!mounted) return;
@@ -410,7 +421,7 @@ export function TabletSignPage() {
   }, [submitted, session, deviceId]);
 
   /*
-   * Submit the final signature from the tablet.
+   * Submit the final signature from the sign device.
    */
   const handleDone = async () => {
     if (!session) return;
@@ -443,13 +454,13 @@ export function TabletSignPage() {
           signature,
           consent: true,
         },
-        tablet
+        device
       );
 
       /*
-       * Update the tablet immediately.
+       * Update the sign device immediately.
        *
-       * The tablet does not need to wait for another
+       * The sign device does not need to wait for another
        * polling request to show Signature Submitted.
        */
       setSubmitted(true);
@@ -581,79 +592,133 @@ export function TabletSignPage() {
   }
 
   /*
-   * Active signing session.
+   * Active signing session, step 1: the claimant agrees to the
+   * Data Privacy Act notice before the pad appears.
    */
-  return (
-    <div className="paper-texture flex min-h-screen items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-2xl space-y-6 rounded-xl border border-border/80 bg-card p-5 shadow-lift animate-fade-up sm:p-8">
-        <div className="text-center">
-          <p className="eyebrow">RTAMS · Signature Required</p>
-
-          <p className="mt-5 text-sm text-muted-foreground">
-            Claimant
-          </p>
-
-          <p className="font-display text-3xl font-semibold">
-            {session.releasedTo}
-          </p>
-
-          {session.count > 1 && (
-            <div className="mt-3 text-sm text-muted-foreground">
-              <p>
-                Claiming <span className="font-mono font-semibold text-foreground">{session.count}</span> documents for:
-              </p>
-              <p className="mt-1 max-h-24 overflow-y-auto">
-                {session.studentNames.join('; ')}
-              </p>
+  if (!consent) {
+    return (
+      <div className="paper-texture flex min-h-[100dvh] items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-lg space-y-6 rounded-xl border border-border/80 bg-card p-6 text-center shadow-lift animate-fade-up sm:p-8">
+          <div>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-8 ring-primary/5">
+              <ShieldCheck className="h-7 w-7" />
             </div>
-          )}
-        </div>
-
-        {error && <ErrorBox message={error} />}
-
-        <div className="space-y-3">
-          <label className="text-sm font-medium">
-            Please sign below
-          </label>
-
-          <div className="rounded-lg border-2 border-dashed border-seal/50 bg-seal/5 p-2">
-            {/* Keep the pad without a background color so the saved PNG stays transparent for the BUP logbook. */}
-            <SignaturePadComponent ref={sigRef} />
+            <p className="eyebrow">RTAMS · Signature Required</p>
+            <ClaimantInfo session={session} className="mt-4" />
           </div>
-        </div>
 
-        <label
-          className={cn(
-            'flex cursor-pointer items-start gap-3 rounded-md border p-4 text-sm transition-colors',
-            consent ? 'border-success/40 bg-success/5' : 'hover:bg-accent/60'
-          )}
-        >
-          <input
-            type="checkbox"
-            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-[hsl(var(--primary))]"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-          />
-          <span>
+          {error && <ErrorBox message={error} />}
+
+          <div className="rounded-md border bg-muted/40 p-4 text-left text-sm leading-relaxed">
+            <p className="mb-2 font-medium">Data Privacy Notice</p>
             I agree to the capture and storage of my signature
             as proof of document release, and I consent to the
             processing of my personal information in accordance
             with the Data Privacy Act of 2012 (Republic Act No.
             10173).
-          </span>
-        </label>
+          </div>
 
-        <Button
-          type="button"
-          size="lg"
-          onClick={handleDone}
-          disabled={!consent}
-          className="h-14 w-full text-base"
-        >
-          <Check className="h-5 w-5" />
-          Done
-        </Button>
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => setConsent(true)}
+            className="h-14 w-full text-base"
+          >
+            <Check className="h-5 w-5" />
+            I Agree
+          </Button>
+        </div>
       </div>
+    );
+  }
+
+  /*
+   * Active signing session, step 2: the pad. Upright phones get the
+   * pad on top with the buttons below; sideways the pad takes the left
+   * and the claimant and buttons sit in a column on the right.
+   */
+  return (
+    <div className="paper-texture flex h-[100dvh] flex-col gap-3 p-3 landscape:flex-row sm:p-4">
+      <ClaimantInfo session={session} compact className="shrink-0 landscape:hidden" />
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border-2 border-dashed border-seal/50 bg-seal/5 p-2">
+        <p className="mb-1 text-xs text-muted-foreground">Please sign below</p>
+        {/* Keep the pad without a background color so the saved PNG stays transparent for the BUP logbook. */}
+        <div className="min-h-0 flex-1 rounded-md border bg-white">
+          <SignaturePadComponent ref={sigRef} />
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-2 landscape:w-44 landscape:justify-between">
+        <ClaimantInfo session={session} compact className="hidden landscape:block" />
+
+        {error && <ErrorBox message={error} />}
+
+        <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground landscape:hidden">
+          <RotateCw className="h-3.5 w-3.5" />
+          Turn your phone sideways for more room
+        </p>
+
+        <div className="flex gap-2 landscape:flex-col">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => sigRef.current?.clear()}
+            className="h-14 flex-1 text-base landscape:flex-none"
+          >
+            <Eraser className="h-5 w-5" />
+            Clear
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            onClick={handleDone}
+            className="h-14 flex-[2] text-base landscape:flex-none"
+          >
+            <Check className="h-5 w-5" />
+            Done
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClaimantInfo({
+  session,
+  compact = false,
+  className,
+}: {
+  session: SignSession;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cn('min-w-0', className)}>
+      <p className="text-xs text-muted-foreground">Claimant</p>
+      <p
+        className={cn(
+          'font-display font-semibold break-words',
+          compact ? 'text-xl leading-tight' : 'text-3xl'
+        )}
+      >
+        {session.releasedTo}
+      </p>
+
+      {session.count > 1 && (
+        <div className={cn('text-muted-foreground', compact ? 'mt-1 text-xs' : 'mt-3 text-sm')}>
+          <p>
+            Claiming <span className="font-mono font-semibold text-foreground">{session.count}</span> documents
+            {compact ? '' : ' for:'}
+          </p>
+          {!compact && (
+            <p className="mt-1 max-h-24 overflow-y-auto">
+              {session.studentNames.join('; ')}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

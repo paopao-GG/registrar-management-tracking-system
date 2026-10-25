@@ -231,7 +231,7 @@ cd ..
 
 ### What this does:
 - **`prisma generate`** — Creates the TypeScript client library from the Prisma schema so the server code can interact with the database
-- **`prisma migrate deploy`** — Applies all migration files to your PostgreSQL database, creating the `User`, `Student`, `Transaction`, `AuditLog`, `SigningSession`, and `TabletLock` tables along with their indexes and relationships. Run it again whenever you pull changes that add a migration (for example the v2 migration `20260917000000_v2_updates`)
+- **`prisma migrate deploy`** — Applies all migration files to your PostgreSQL database, creating the `User`, `Student`, `Transaction`, `AuditLog`, `SigningSession`, and `SignDeviceLock` tables along with their indexes and relationships. Run it again whenever you pull changes that add a migration (for example the v2 migration `20260917000000_v2_updates`)
 
 ### Verify tables were created
 
