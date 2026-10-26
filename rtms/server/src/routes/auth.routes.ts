@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { clearActivity, login, SessionInUseError } from '../services/auth.service.js';
+import { clearActivity, login, LoginError, SessionInUseError } from '../services/auth.service.js';
 import { verifyToken } from '../utils/jwt.js';
 import { loginSchema } from '@rtams/shared';
 
@@ -14,8 +14,19 @@ export async function authRoutes(app: FastifyInstance) {
       const result = await login(parsed.data.username, parsed.data.password);
       return result;
     } catch (error: any) {
-      const status = error instanceof SessionInUseError ? 409 : 401;
-      return reply.status(status).send({ error: error.message });
+      if (error instanceof SessionInUseError) {
+        return reply.status(409).send({ error: error.message });
+      }
+
+      if (error instanceof LoginError) {
+        return reply.status(401).send({ error: error.message });
+      }
+
+      // Anything else (e.g. the database) stays in the server log.
+      request.log.error(error, 'Login failed');
+      return reply
+        .status(500)
+        .send({ error: 'Unable to log in right now. Please try again.' });
     }
   });
 

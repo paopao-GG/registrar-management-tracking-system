@@ -49,13 +49,18 @@ All three parts of the monorepo (`shared`, `server`, `client`) build together in
 
 Run this from your local machine to create the tables (User, Student, Transaction, AuditLog, SigningSession, SignDeviceLock) or to apply new migrations.
 
-**Apply new migrations before deploying code that needs them.** The v2 release adds the migration `20260917000000_v2_updates` (renames CMC to GMC, adds student Sex/Contact Number/alumni fields, staff activity, signing consent and the sign device lock). The v2 code will fail against a database that hasn't been migrated. The later migration `20261026000000_rename_sign_device_lock` renames the lock table to `SignDeviceLock`; apply it before deploying the code that uses the new name.
+**Apply new migrations before deploying code that needs them.** The v2 release adds the migration `20260917000000_v2_updates` (renames CMC to GMC, adds student Sex/Contact Number/alumni fields, staff activity, signing consent and the sign device lock). The v2 code will fail against a database that hasn't been migrated. The later migrations `20261026000000_rename_sign_device_lock` (renames the lock table to `SignDeviceLock`) and `20261026010000_single_user_session` (one device per staff account) must also be applied before deploying the code that uses them; without the second one, nobody can log in.
+
+**Set `DIRECT_URL` too.** Prisma Migrate connects through `DIRECT_URL`, not `DATABASE_URL`. If only `DATABASE_URL` is set, Migrate falls back to `DIRECT_URL` from your local `server/.env`, which points to `localhost`, so the migrations land on your local database and report success while Supabase is left unchanged. Use the Supabase connection string on **port 5432** (Direct connection or Session pooler) for both; the port 6543 transaction pooler URL cannot run migrations reliably.
 
 ```powershell
 cd rtms/server
-$env:DATABASE_URL="<your-pooler-url-from-1.1>"
+$env:DATABASE_URL="<Supabase connection string, port 5432>"
+$env:DIRECT_URL=$env:DATABASE_URL
 npx prisma migrate deploy
 ```
+
+The first lines of the output name the database host. Check that it is the Supabase host, not `localhost`. `npx prisma migrate status` with the same variables should then report the schema as up to date.
 
 ### 1.3 Seed initial data
 

@@ -66,6 +66,9 @@ export async function endSession(userId: string) {
   });
 }
 
+// A refusal the login form can show as is (wrong password, deactivated).
+export class LoginError extends Error {}
+
 export class SessionInUseError extends Error {
   constructor() {
     super(
@@ -79,16 +82,16 @@ export async function login(username: string, password: string) {
     where: { username: username.toLowerCase() },
   });
   if (!user) {
-    throw new Error('Invalid credentials');
+    throw new LoginError('Invalid credentials');
   }
 
   if (user.status === 'inactive') {
-    throw new Error('Account is deactivated');
+    throw new LoginError('Account is deactivated');
   }
 
   const valid = await comparePassword(password, user.passwordHash);
   if (!valid) {
-    throw new Error('Invalid credentials');
+    throw new LoginError('Invalid credentials');
   }
 
   /*
