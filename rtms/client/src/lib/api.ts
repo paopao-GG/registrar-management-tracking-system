@@ -35,11 +35,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isLoginAttempt) {
       localStorage.removeItem('rtams_token');
       localStorage.removeItem('rtams_user');
-      // Tell the login page why, when the session was ended elsewhere.
-      window.location.href =
-        error.response.data?.error === 'signed_out'
-          ? '/login?reason=signed_out'
-          : '/login';
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }

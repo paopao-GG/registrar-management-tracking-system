@@ -17,9 +17,6 @@ model User {
   role         String
   status       String   @default("active")
   lastActiveAt DateTime?
-  // One device per account: the live session and when its token expires.
-  sessionId        String?
-  sessionExpiresAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

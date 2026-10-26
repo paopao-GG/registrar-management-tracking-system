@@ -3,7 +3,6 @@ import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import { prisma } from '../config/db.js';
 import { hashPassword } from '../utils/password.js';
-import { endSession } from '../services/auth.service.js';
 import { createUserSchema, updateUserSchema } from '@rtams/shared';
 
 export async function userRoutes(app: FastifyInstance) {
@@ -59,12 +58,6 @@ export async function userRoutes(app: FastifyInstance) {
         data: parsed.data,
         select: { id: true, name: true, username: true, role: true, status: true, createdAt: true, updatedAt: true },
       });
-
-      // A deactivated account loses its open session straight away.
-      if (parsed.data.status === 'inactive') {
-        await endSession(id);
-      }
-
       return { ...user, _id: user.id };
     } catch {
       return reply.status(404).send({ error: 'User not found' });
@@ -79,21 +72,6 @@ export async function userRoutes(app: FastifyInstance) {
     try {
       await prisma.user.update({ where: { id }, data: { passwordHash } });
       return { message: 'Password reset', temporaryPassword: tempPassword };
-    } catch {
-      return reply.status(404).send({ error: 'User not found' });
-    }
-  });
-
-  /*
-   * Ends the account's session so it can log in on another device,
-   * e.g. after a browser was left logged in.
-   */
-  app.post('/api/users/:id/sign-out', async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-    try {
-      await endSession(id);
-      return { message: 'Signed out' };
     } catch {
       return reply.status(404).send({ error: 'User not found' });
     }

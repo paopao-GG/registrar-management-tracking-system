@@ -106,7 +106,7 @@ erDiagram
 
 | Table | Key fields | Notes |
 |---|---|---|
-| `User` | `name`, `username`, `passwordHash`, `role` (`admin`/`staff`), `status`, `lastActiveAt`, `sessionId`, `sessionExpiresAt` | `lastActiveAt` is the staff-activity signal used by the sign device. `sessionId` is the account's one live session (see Security). |
+| `User` | `name`, `username`, `passwordHash`, `role` (`admin`/`staff`), `status`, `lastActiveAt` | `lastActiveAt` is the staff-activity signal used by the sign device. |
 | `Student` | `studentNumber` (unique), names, `email` (BU email), `sex` (`M`/`F`), `contactNumber`, `course`, `yearLevel`, `active`, `isAlumni` | Alumni use `yearLevel = 0`. Not-enrolled students (`active = false`) are reported with year level `-1` (`NOT_ENROLLED_YEAR_LEVEL`). Manually added records without a student number get `MANUAL-<id>`. |
 | `Transaction` | `studentId`, snapshot fields (`studentName`, `studentCourse`, `studentYearLevel`), `docCOR`, `docCOG`, `docGMC`, `docAUTH`, `docOTR`, `others`, `othersCount`, `status`, prepared/reviewed/released fields, `duration`, `signature` | Student details are copied at creation so later roster changes don't rewrite history. `signature` is a PNG data URL. |
 | `AuditLog` | `transactionId`, `action`, `previousStatus`, `newStatus`, `performedBy`, `performedByName`, `timestamp` | One row per status change. |
@@ -266,7 +266,6 @@ The workbooks are built by `utils/logbook-xlsx.ts` with ExcelJS:
 |---|---|
 | Passwords | bcrypt hashes |
 | Sessions | JWT signed with `JWT_SECRET`, expires after 30 minutes; the client also logs out after 30 minutes without input. Production refuses to start with a weak or default secret. |
-| One device per account | Login stores a `sessionId` on the user and puts it in the token as `sid`; `authenticate` rejects any other `sid` with `401 signed_out`. A second login gets `409` while the current session is live (token not expired and used within the last 3 minutes). Logout, deactivation and the admin **Sign Out** action (`POST /api/users/:id/sign-out`) end the session. |
 | Authorization | `authenticate` on all non-public routes; `requireAdmin` / `requireStaff` per route (e.g. only admin can sign, only staff can release) |
 | Input validation | Zod schemas from `@rtams/shared` on every write |
 | Brute force | Login is rate-limited to 10 requests per minute per IP when running as a normal server. This limit is in memory, so it does not apply on Vercel. |
@@ -296,7 +295,6 @@ The workbooks are built by `utils/logbook-xlsx.ts` with ExcelJS:
 | GET | `/api/reports` (`startDate`, `endDate`, `format`) | admin |
 | GET | `/api/audit-logs` (`startDate`, `endDate`, `page`, `limit`) | admin |
 | GET · POST · PATCH | `/api/users`, `/api/users/:id`, `/api/users/:id/reset-password` | admin |
-| POST | `/api/users/:id/sign-out` | admin |
 | POST | `/api/signing/sessions` | staff |
 | GET · DELETE | `/api/signing/sessions/:id` | staff |
 | POST | `/api/signing/device/claim` | sign device (device ID header) |
