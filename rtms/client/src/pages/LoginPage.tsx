@@ -17,7 +17,11 @@ const highlights = [
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() =>
+    new URLSearchParams(window.location.search).get('reason') === 'signed_out'
+      ? 'You were signed out because this account was signed out by an admin or used on another device.'
+      : ''
+  );
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();

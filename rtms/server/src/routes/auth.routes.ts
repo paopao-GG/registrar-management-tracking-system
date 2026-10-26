@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { clearActivity, login } from '../services/auth.service.js';
+import { clearActivity, login, SessionInUseError } from '../services/auth.service.js';
 import { verifyToken } from '../utils/jwt.js';
 import { loginSchema } from '@rtams/shared';
 
@@ -14,7 +14,8 @@ export async function authRoutes(app: FastifyInstance) {
       const result = await login(parsed.data.username, parsed.data.password);
       return result;
     } catch (error: any) {
-      return reply.status(401).send({ error: error.message });
+      const status = error instanceof SessionInUseError ? 409 : 401;
+      return reply.status(status).send({ error: error.message });
     }
   });
 
@@ -24,7 +25,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (header?.startsWith('Bearer ')) {
       try {
         const user = verifyToken(header.slice(7));
-        await clearActivity(user.id);
+        await clearActivity(user.id, user.sid);
       } catch {
         // Expired or invalid token: nothing to clear.
       }

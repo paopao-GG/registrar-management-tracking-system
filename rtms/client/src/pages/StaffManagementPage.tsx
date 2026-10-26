@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, Copy, KeyRound, Power, UserPlus, Users } from 'lucide-react';
+import { Check, Copy, KeyRound, LogOut, Power, UserPlus, Users } from 'lucide-react';
 import api from '@/lib/api';
 
 interface User {
@@ -128,6 +128,26 @@ export function StaffManagementPage() {
     }
   };
 
+  const handleSignOut = async (user: User) => {
+    const ok = await confirm({
+      title: `Sign out ${user.name}?`,
+      description: 'Any device logged in to this account will be signed out, so the account can log in on another device.',
+      confirmText: 'Sign out',
+      tone: 'destructive',
+    });
+    if (!ok) return;
+
+    setBusyId(user._id);
+    try {
+      await api.post(`/users/${user._id}/sign-out`);
+      toast.success(`${user.name} has been signed out`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to sign out the account');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const copyPassword = async () => {
     if (!resetResult) return;
     try {
@@ -205,6 +225,15 @@ export function StaffManagementPage() {
                           >
                             <KeyRound className="h-3.5 w-3.5" />
                             Reset Password
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busyId === u._id}
+                            onClick={() => handleSignOut(u)}
+                          >
+                            <LogOut className="h-3.5 w-3.5" />
+                            Sign Out
                           </Button>
                         </div>
                       </td>
