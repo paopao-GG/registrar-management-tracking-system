@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 import { prisma } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireStaff } from '../middleware/roles.js';
+import { toDocumentsObject } from '../utils/doc-mapper.js';
+import { formatRequestedDocuments, isRequestorName } from '@rtams/shared';
 
 // The ceiling on a signing, counted from when staff started it.
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
@@ -650,7 +652,16 @@ export async function signingRoutes(app: FastifyInstance) {
           where: {
             id: { in: sessionTransactionIds(session) },
           },
-          select: { studentName: true },
+          select: {
+            studentName: true,
+            docCOR: true,
+            docCOG: true,
+            docGMC: true,
+            docAUTH: true,
+            docOTR: true,
+            others: true,
+            othersCount: true,
+          },
         });
 
       if (transactions.length === 0) {
@@ -666,12 +677,27 @@ export async function signingRoutes(app: FastifyInstance) {
         });
       }
 
+      const studentNames = Array.from(
+        new Set(transactions.map((t) => t.studentName))
+      );
+
       return reply.send({
         session: {
           token: session.token,
           releasedTo: session.releasedTo,
-          studentNames: Array.from(
-            new Set(transactions.map((t) => t.studentName))
+          studentNames,
+          // What the claimant is signing for, one line per request.
+          items: transactions.map((t) => ({
+            studentName: t.studentName,
+            documents: formatRequestedDocuments(
+              toDocumentsObject(t),
+              t.others,
+              t.othersCount
+            ),
+          })),
+          authorizedRepresentative: !isRequestorName(
+            session.releasedTo,
+            studentNames
           ),
           count: transactions.length,
           status: session.status,

@@ -31,7 +31,7 @@ export function StatTiles({
   const tiles: Tile[] = [
     { label: 'New Requests', value: newRequests, icon: FileText, accent: 'text-primary bg-primary/10' },
     { label: 'Processing', value: processing, icon: Loader, accent: 'text-warning bg-warning/10' },
-    { label: 'Ready for Release', value: readyForRelease, icon: Clock, accent: 'text-info bg-info/10' },
+    { label: 'Ready for Release / Forwarding', value: readyForRelease, icon: Clock, accent: 'text-info bg-info/10' },
     {
       label: isToday ? "Today's Completed" : 'Completed',
       value: completed,

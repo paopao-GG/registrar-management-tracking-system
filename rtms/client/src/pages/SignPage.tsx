@@ -4,6 +4,12 @@ import {
   type SignaturePadRef,
 } from '@/components/transactions/SignaturePad';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -13,6 +19,7 @@ import {
   Check,
   CheckCircle2,
   Eraser,
+  FileText,
   Lock,
   PenLine,
   RotateCw,
@@ -25,6 +32,10 @@ interface SignSession {
   token: string;
   releasedTo: string;
   studentNames: string[];
+  // What is being claimed, one entry per request.
+  items?: { studentName: string; documents: string }[];
+  // The claimant is not one of the students: they brought an authorization letter.
+  authorizedRepresentative?: boolean;
   count: number;
   status:
     | 'pending'
@@ -596,37 +607,46 @@ export function SignPage() {
    * Data Privacy Act notice before the pad appears.
    */
   if (!consent) {
+    /*
+     * Sideways, the claimant sits on the left and the notice with
+     * I Agree on the right, so a phone needs no scrolling.
+     */
     return (
-      <div className="paper-texture flex min-h-[100dvh] items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-lg space-y-6 rounded-xl border border-border/80 bg-card p-6 text-center shadow-lift animate-fade-up sm:p-8">
-          <div>
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-8 ring-primary/5">
+      <div className="paper-texture flex min-h-[100dvh] items-center justify-center p-4 sm:p-6 landscape:p-3">
+        <div className="w-full max-w-lg space-y-6 rounded-xl border border-border/80 bg-card p-6 text-center shadow-lift animate-fade-up sm:p-8 landscape:grid landscape:max-w-3xl landscape:grid-cols-2 landscape:gap-5 landscape:space-y-0 landscape:p-5 landscape:text-left">
+          <div className="min-w-0">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-8 ring-primary/5 landscape:hidden">
               <ShieldCheck className="h-7 w-7" />
             </div>
-            <p className="eyebrow">RTAMS · Signature Required</p>
-            <ClaimantInfo session={session} className="mt-4" />
+            <p className="eyebrow landscape:flex landscape:items-center landscape:gap-1.5">
+              <ShieldCheck className="hidden h-4 w-4 text-primary landscape:inline" />
+              RTAMS · Signature Required
+            </p>
+            <ClaimantInfo session={session} className="mt-4 landscape:mt-2" />
           </div>
 
-          {error && <ErrorBox message={error} />}
+          <div className="flex min-w-0 flex-col gap-6 landscape:gap-3">
+            {error && <ErrorBox message={error} />}
 
-          <div className="rounded-md border bg-muted/40 p-4 text-left text-sm leading-relaxed">
-            <p className="mb-2 font-medium">Data Privacy Notice</p>
-            I agree to the capture and storage of my signature
-            as proof of document release, and I consent to the
-            processing of my personal information in accordance
-            with the Data Privacy Act of 2012 (Republic Act No.
-            10173).
+            <div className="rounded-md border bg-muted/40 p-4 text-left text-sm leading-relaxed landscape:p-3 landscape:text-xs">
+              <p className="mb-2 font-medium landscape:mb-1 landscape:text-sm">Data Privacy Notice</p>
+              I agree to the capture and storage of my signature
+              as proof of document release, and I consent to the
+              processing of my personal information in accordance
+              with the Data Privacy Act of 2012 (Republic Act No.
+              10173).
+            </div>
+
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => setConsent(true)}
+              className="h-14 w-full text-base landscape:mt-auto landscape:h-12"
+            >
+              <Check className="h-5 w-5" />
+              I Agree
+            </Button>
           </div>
-
-          <Button
-            type="button"
-            size="lg"
-            onClick={() => setConsent(true)}
-            className="h-14 w-full text-base"
-          >
-            <Check className="h-5 w-5" />
-            I Agree
-          </Button>
         </div>
       </div>
     );
@@ -700,26 +720,96 @@ function ClaimantInfo({
       <p
         className={cn(
           'font-display font-semibold break-words',
-          compact ? 'text-xl leading-tight' : 'text-3xl'
+          compact ? 'text-xl leading-tight' : 'text-3xl landscape:text-2xl'
         )}
       >
         {session.releasedTo}
       </p>
 
-      {session.count > 1 && (
-        <div className={cn('text-muted-foreground', compact ? 'mt-1 text-xs' : 'mt-3 text-sm')}>
-          <p>
-            Claiming <span className="font-mono font-semibold text-foreground">{session.count}</span> documents
-            {compact ? '' : ' for:'}
-          </p>
-          {!compact && (
-            <p className="mt-1 max-h-24 overflow-y-auto">
-              {session.studentNames.join('; ')}
-            </p>
-          )}
-        </div>
+      {session.authorizedRepresentative && (
+        <p className={cn('font-medium text-warning', compact ? 'text-xs' : 'mt-1 text-sm')}>
+          Authorized Representative
+        </p>
       )}
+
+      <DocumentsToClaim session={session} compact={compact} />
     </div>
+  );
+}
+
+/*
+ * One request is listed inline. Two or more sit behind a button that
+ * opens the full list, so the screen stays clear for signing.
+ */
+function DocumentsToClaim({
+  session,
+  compact,
+}: {
+  session: SignSession;
+  compact: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const items =
+    session.items ??
+    session.studentNames.map((studentName) => ({ studentName, documents: '' }));
+
+  const itemLine = (item: (typeof items)[number]) => (
+    <>
+      <span className="text-foreground">{item.studentName}</span>
+      {item.documents && ` — ${item.documents}`}
+    </>
+  );
+
+  if (items.length < 2) {
+    if (compact || items.length === 0) return null;
+
+    return (
+      <div className="mt-4 rounded-md border bg-muted/40 p-3 text-left text-sm landscape:mt-3">
+        <p className="font-medium">Documents to claim:</p>
+        <p className="mt-1 text-muted-foreground">{itemLine(items[0])}</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1 text-left text-xs text-muted-foreground underline underline-offset-2"
+        >
+          Claiming <span className="font-mono font-semibold text-foreground">{items.length}</span> documents
+          {' '}· View
+        </button>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(true)}
+          className="mt-4 w-full landscape:mt-3"
+        >
+          <FileText className="h-4 w-4" />
+          View documents to claim ({items.length})
+        </Button>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Documents to claim:</DialogTitle>
+          </DialogHeader>
+          <ul className="max-h-[60dvh] space-y-2 overflow-y-auto text-left text-sm text-muted-foreground">
+            {items.map((item, i) => (
+              <li key={i} className="border-b border-border/60 pb-2 last:border-0">
+                {itemLine(item)}
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
-import { CheckCircle2, PackageCheck, Smartphone } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, PackageCheck, Smartphone } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { isRequestorName } from '@rtams/shared';
 import type { ReleaseTarget } from './TransactionTable';
 
 interface Props {
@@ -28,6 +29,8 @@ export function ReleaseDialog({
   onReleased,
 }: Props) {
   const [releasedTo, setReleasedTo] = useState('');
+  // Staff checked the authorization letter of a non-requestor claimant.
+  const [authorized, setAuthorized] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const suggestionListRef = useRef<HTMLDivElement>(null);
@@ -61,11 +64,20 @@ export function ReleaseDialog({
   const count = transactions.length;
 
   /*
+   * Someone other than the students on this release needs an
+   * authorization letter.
+   */
+  const needsAuthorization =
+    !!releasedTo.trim() && !isRequestorName(releasedTo, studentNames);
+  const authorizationMissing = needsAuthorization && !authorized;
+
+  /*
    * Reset the dialog whenever it opens for new transactions.
    */
   useEffect(() => {
     if (open) {
       setReleasedTo('');
+      setAuthorized(false);
       setSuggestions([]);
       setSendingToDevice(false);
       setSessionId(null);
@@ -174,6 +186,11 @@ export function ReleaseDialog({
       return;
     }
 
+    if (authorizationMissing) {
+      toast.warning('Please check the authorization letter first.');
+      return;
+    }
+
     setSendingToDevice(true);
     setSuggestions([]);
 
@@ -213,6 +230,11 @@ export function ReleaseDialog({
       return;
     }
 
+    if (authorizationMissing) {
+      toast.warning('Please check the authorization letter first.');
+      return;
+    }
+
     if (!signatureReceived || !signature) {
       toast.warning(
         'Please have the claimant sign first.'
@@ -232,6 +254,7 @@ export function ReleaseDialog({
         ids: transactionIds,
         releasedTo: releasedTo.trim(),
         signature,
+        authorized: needsAuthorization && authorized,
         sessionId: sessionId ?? undefined,
       });
 
@@ -244,7 +267,11 @@ export function ReleaseDialog({
 
       toast.success(
         count > 1 ? `${count} documents released` : 'Document released',
-        { description: `Claimed by ${releasedTo.trim()}.` }
+        {
+          description: needsAuthorization
+            ? `Claimed by ${releasedTo.trim()} (Authorized Representative).`
+            : `Claimed by ${releasedTo.trim()}.`,
+        }
       );
       onReleased();
       onClose();
@@ -380,19 +407,20 @@ export function ReleaseDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {count > 1 && (
-          <div className="rounded-md border bg-muted/40 p-3 text-sm">
-            <p className="font-medium">
-              One claimant will sign for:
-            </p>
+        <div className="rounded-md border bg-muted/40 p-3 text-sm">
+          <p className="font-medium">
+            Documents to claim{count > 1 && ' (one claimant signs for all)'}:
+          </p>
 
-            <ul className="mt-1 max-h-32 list-disc overflow-y-auto pl-5 text-muted-foreground">
-              {studentNames.map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+          <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto text-muted-foreground">
+            {transactions.map((t) => (
+              <li key={t.id}>
+                <span className="text-foreground">{t.studentName}</span>
+                {t.documents && ` — ${t.documents}`}
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <form
           onSubmit={handleSubmit}
@@ -459,6 +487,27 @@ export function ReleaseDialog({
                 </div>
               )}
             </div>
+
+            {needsAuthorization && (
+              <div className="space-y-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm animate-in fade-in-0">
+                <p className="flex items-start gap-2 text-warning">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  The claimant is not the requestor. An authorization
+                  letter is required.
+                </p>
+
+                <label className="flex cursor-pointer items-center gap-2 font-medium">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer accent-[hsl(var(--primary))]"
+                    checked={authorized}
+                    onChange={(e) => setAuthorized(e.target.checked)}
+                    disabled={sendingToDevice || signatureReceived}
+                  />
+                  Authorization letter received and verified
+                </label>
+              </div>
+            )}
           </div>
 
           {/* SIGNATURE */}
@@ -476,7 +525,7 @@ export function ReleaseDialog({
                     handleSendToDevice
                   }
                   loading={sendingToDevice}
-                  disabled={!releasedTo.trim()}
+                  disabled={!releasedTo.trim() || authorizationMissing}
                 >
                   {!sendingToDevice && <Smartphone className="h-4 w-4" />}
                   {sendingToDevice
@@ -573,7 +622,8 @@ export function ReleaseDialog({
             loading={loading}
             disabled={
               !signatureReceived ||
-              !signature
+              !signature ||
+              authorizationMissing
             }
           >
             {!loading && <PackageCheck className="h-4 w-4" />}

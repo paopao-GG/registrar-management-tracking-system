@@ -118,7 +118,7 @@ export const createTransactionSchema = z.object({
     COG: z.number().int().min(0),
     GMC: z.number().int().min(0),
     AUTH: z.number().int().min(0),
-    OTR: z.number().int().min(0),
+    OTR: z.number().int().min(0).default(0),
   }),
   others: z.string().default(''),
   othersCount: z.number().int().min(0).default(0),
@@ -127,6 +127,7 @@ export const createTransactionSchema = z.object({
 export const releaseTransactionSchema = z.object({
   releasedTo: z.string().min(1, 'Claimer name is required'),
   signature: z.string().min(1, 'Signature is required'),
+  authorized: z.boolean().default(false),
 });
 
 export const bulkIdsSchema = z.object({
@@ -146,6 +147,8 @@ export const bulkStudentIdsSchema = z.object({
 export const bulkReleaseSchema = bulkIdsSchema.extend({
   releasedTo: z.string().trim().min(1, 'Claimer name is required'),
   signature: z.string().min(1, 'Signature is required'),
+  // Staff checked an authorization letter from a non-requestor claimant.
+  authorized: z.boolean().default(false),
   // signing session to mark confirmed along with the release.
   sessionId: z.string().min(1).optional(),
 });

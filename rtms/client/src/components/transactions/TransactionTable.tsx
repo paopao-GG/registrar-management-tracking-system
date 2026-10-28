@@ -10,14 +10,18 @@ import {
 } from '@/components/ui/dialog';
 import { TopScrollContainer } from '@/components/ui/top-scroll';
 import { EmptyState } from '@/components/ui/empty-state';
-import { FileSearch, PenLine, PackageCheck, Play, X } from 'lucide-react';
+import { FileSearch, PenLine, PackageCheck, Play, Send, X } from 'lucide-react';
 import {
   cn,
   formatDate,
   formatDuration,
   formatShortDateTime,
 } from '@/lib/utils';
-import { DOCUMENT_TYPES, formatCourseYear } from '@rtams/shared';
+import {
+  REQUESTED_DOCUMENT_KEYS,
+  formatCourseYear,
+  formatRequestedDocuments,
+} from '@rtams/shared';
 
 interface Transaction {
   _id: string;
@@ -34,6 +38,7 @@ interface Transaction {
   reviewedAt?: string;
   duration?: number;
   releasedTo?: string;
+  releasedByAuthorization?: boolean;
   releasedAt?: string;
   signature?: string;
 }
@@ -41,12 +46,23 @@ interface Transaction {
 export interface ReleaseTarget {
   id: string;
   studentName: string;
+  // e.g. "COR (2), COG", shown to the claimant before they sign.
+  documents: string;
+}
+
+function documentsOf(t: Transaction) {
+  return formatRequestedDocuments(t.requestedDocuments, t.others, t.othersCount);
+}
+
+function toReleaseTarget(t: Transaction): ReleaseTarget {
+  return { id: t._id, studentName: t.studentName, documents: documentsOf(t) };
 }
 
 interface Props {
   transactions: Transaction[];
   onSign?: (ids: string[]) => void;
   onRelease?: (targets: ReleaseTarget[]) => void;
+  onForward?: (ids: string[]) => void;
   onStartProcessing?: (ids: string[]) => void;
   showActions?: boolean;
   showReviewer?: boolean;
@@ -54,11 +70,11 @@ interface Props {
 }
 
 /*
- * Whole days a signed request has been waiting to be claimed.
- * 0 for anything prepared today or already released.
+ * Whole days a signed request has been waiting to be claimed or
+ * forwarded. 0 for anything prepared today or already completed.
  */
 function daysWaiting(t: Transaction) {
-  if (t.status !== 'Ready for Release') return 0;
+  if (t.status !== 'Ready for Release' && t.status !== 'For Forwarding') return 0;
 
   return Math.max(
     0,
@@ -73,8 +89,10 @@ export const statusVariant = (status: string) => {
     case 'Processing':
       return 'warning' as const;
     case 'Ready for Release':
+    case 'For Forwarding':
       return 'info' as const;
     case 'Released':
+    case 'Forwarded':
       return 'success' as const;
     default:
       return 'secondary' as const;
@@ -85,6 +103,7 @@ export function TransactionTable({
   transactions,
   onSign,
   onRelease,
+  onForward,
   onStartProcessing,
   showActions = true,
   showReviewer = false,
@@ -106,7 +125,8 @@ export function TransactionTable({
   const hasAction = (status: string) =>
     (status === 'Pending' && !!onStartProcessing) ||
     (status === 'Processing' && canSign) ||
-    (status === 'Ready for Release' && !!onRelease);
+    (status === 'Ready for Release' && !!onRelease) ||
+    (status === 'For Forwarding' && !!onForward);
 
   // Only rows with an action get a checkbox; hide the column when none do.
   // The column stays mounted while a status lock hides individual boxes,
@@ -140,6 +160,7 @@ export function TransactionTable({
   const pendingSelected = selectedRows.filter((t) => t.status === 'Pending');
   const processingSelected = selectedRows.filter((t) => t.status === 'Processing');
   const readySelected = selectedRows.filter((t) => t.status === 'Ready for Release');
+  const forwardSelected = selectedRows.filter((t) => t.status === 'For Forwarding');
 
   /*
    * The first checked row locks the selection to its status. A bulk action
@@ -246,16 +267,21 @@ export function TransactionTable({
             <Button
               size="sm"
               onClick={() =>
-                onRelease(
-                  readySelected.map((t) => ({
-                    id: t._id,
-                    studentName: t.studentName,
-                  }))
-                )
+                onRelease(readySelected.map(toReleaseTarget))
               }
             >
               <PackageCheck className="h-3.5 w-3.5" />
               Release to One Claimant ({readySelected.length})
+            </Button>
+          )}
+
+          {onForward && forwardSelected.length > 0 && (
+            <Button
+              size="sm"
+              onClick={() => onForward(forwardSelected.map((t) => t._id))}
+            >
+              <Send className="h-3.5 w-3.5" />
+              Forward ({forwardSelected.length})
             </Button>
           )}
 
@@ -327,7 +353,7 @@ export function TransactionTable({
 
           <tbody>
             {transactions.map((t) => {
-              const docSummary = DOCUMENT_TYPES
+              const docSummary = REQUESTED_DOCUMENT_KEYS
                 .filter(
                   (d: string) =>
                     t.requestedDocuments[d] > 0
@@ -436,16 +462,21 @@ export function TransactionTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() =>
-                              onRelease([
-                                {
-                                  id: t._id,
-                                  studentName: t.studentName,
-                                },
-                              ])
-                            }
+                            onClick={() => onRelease([toReleaseTarget(t)])}
                           >
                             Release
+                          </Button>
+                        )}
+
+                      {t.status === 'For Forwarding' &&
+                        onForward && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onForward([t._id])}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Forward
                           </Button>
                         )}
 
@@ -496,6 +527,12 @@ export function TransactionTable({
 
                   <td className="px-3 py-2">
                     {t.releasedTo || '—'}
+
+                    {t.releasedByAuthorization && (
+                      <div className="text-xs font-medium text-warning whitespace-nowrap">
+                        Authorized Rep.
+                      </div>
+                    )}
 
                     {t.releasedAt && (
                       <div className="text-xs text-muted-foreground whitespace-nowrap">

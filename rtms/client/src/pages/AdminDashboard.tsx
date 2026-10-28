@@ -76,8 +76,9 @@ export function AdminDashboard() {
       setStats({
         newRequests: counts['Pending'] ?? 0,
         processing: counts['Processing'] ?? 0,
-        readyForRelease: counts['Ready for Release'] ?? 0,
-        completed: counts['Released'] ?? 0,
+        readyForRelease:
+          (counts['Ready for Release'] ?? 0) + (counts['For Forwarding'] ?? 0),
+        completed: (counts['Released'] ?? 0) + (counts['Forwarded'] ?? 0),
       });
     } catch (error) {
       console.error(
@@ -181,6 +182,8 @@ export function AdminDashboard() {
               <option value="Processing">Processing</option>
               <option value="Ready for Release">Ready for Release</option>
               <option value="Released">Released</option>
+              <option value="For Forwarding">For Forwarding</option>
+              <option value="Forwarded">Forwarded</option>
             </NativeSelect>
 
             <ProgramYearFilters

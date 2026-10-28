@@ -2,7 +2,14 @@ import { Prisma, type Transaction } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { logStatusChange } from './audit.service.js';
 import { toDocColumns, toApiTransaction } from '../utils/doc-mapper.js';
-import { currentYearLevel, formatStudentName, phDayRange } from '@rtams/shared';
+import {
+  OTR_FORWARDED_TO,
+  currentYearLevel,
+  formatStudentName,
+  isOtrRequest,
+  isRequestorName,
+  phDayRange,
+} from '@rtams/shared';
 
 interface CreateInput {
   studentId: string;
@@ -21,6 +28,21 @@ interface Actor {
 export async function createTransaction(input: CreateInput) {
   const student = await prisma.student.findUnique({ where: { id: input.studentId } });
   if (!student) throw new Error('Student not found');
+
+  // GMC is only issued to undergraduates.
+  if (student.isAlumni && input.requestedDocuments.GMC > 0) {
+    throw new Error('GMC can only be requested by undergraduates');
+  }
+
+  // An OTR request is forwarded, not released, so it cannot share a
+  // request with documents released here.
+  const otherDocs = Object.values(input.requestedDocuments).reduce((a, b) => a + b, 0);
+
+  if (isOtrRequest(input.others) && otherDocs > 0) {
+    throw new Error(
+      'OTR is forwarded to the main campus. Save it as a separate request.'
+    );
+  }
 
   const now = new Date();
   const transaction = await prisma.transaction.create({
@@ -58,12 +80,13 @@ export class TransitionError extends Error {}
  * Move a set of transactions from one status to the next. The
  * updates, their audit entries, and any `extra` writes commit
  * together in one batch transaction. Every transaction must
- * currently be in `from`; otherwise nothing is changed.
+ * currently be in `from`; otherwise nothing is changed. `to` can
+ * be picked per transaction (e.g. OTRs are signed for forwarding).
  */
 async function transition(
   ids: string[],
   from: string,
-  to: string,
+  to: string | ((t: Transaction) => string),
   action: string,
   actor: Actor,
   buildData: (t: Transaction, now: Date) => Record<string, unknown>,
@@ -89,12 +112,13 @@ async function transition(
   }
 
   const now = new Date();
+  const statusFor = typeof to === 'function' ? to : () => to;
 
   const updates = transactions.map((t) =>
     prisma.transaction.update({
       // Matching on status fails the batch if someone else moved it first.
       where: { id: t.id, status: from },
-      data: { status: to, ...buildData(t, now) },
+      data: { status: statusFor(t), ...buildData(t, now) },
     })
   );
 
@@ -103,7 +127,7 @@ async function transition(
       transactionId: t.id,
       action,
       previousStatus: from,
-      newStatus: to,
+      newStatus: statusFor(t),
       performedBy: actor.id,
       performedByName: actor.name,
       timestamp: now,
@@ -128,21 +152,60 @@ export function bulkStartProcessing(ids: string[], actor: Actor) {
 }
 
 export function bulkSign(ids: string[], actor: Actor) {
-  return transition(ids, 'Processing', 'Ready for Release', 'Signed', actor, (t, now) => ({
-    reviewedBy: actor.id,
-    reviewedByName: actor.name,
-    reviewedAt: now,
-    duration: now.getTime() - t.preparedAt.getTime(),
+  return transition(
+    ids,
+    'Processing',
+    // OTRs are released at the main campus, so they wait to be forwarded.
+    (t) => (isOtrRequest(t.others) ? 'For Forwarding' : 'Ready for Release'),
+    'Signed',
+    actor,
+    (t, now) => ({
+      reviewedBy: actor.id,
+      reviewedByName: actor.name,
+      reviewedAt: now,
+      duration: now.getTime() - t.preparedAt.getTime(),
+    })
+  );
+}
+
+/*
+ * Hand signed OTRs over to the main campus. releasedAt records when,
+ * so forwarded requests sit in the logbooks like released ones.
+ */
+export function bulkForward(ids: string[], actor: Actor) {
+  return transition(ids, 'For Forwarding', 'Forwarded', 'Forwarded', actor, (_t, now) => ({
+    releasedTo: OTR_FORWARDED_TO,
+    releasedAt: now,
   }));
 }
 
-export function bulkRelease(
+export async function bulkRelease(
   ids: string[],
   releasedTo: string,
   signature: string,
+  authorized: boolean,
   actor: Actor,
   sessionId?: string
 ) {
+  /*
+   * Someone other than the requesting students may only claim with an
+   * authorization letter, which staff confirms they have checked.
+   */
+  const requestors = await prisma.transaction.findMany({
+    where: { id: { in: ids } },
+    select: { studentName: true },
+  });
+  const byAuthorization = !isRequestorName(
+    releasedTo,
+    requestors.map((t) => t.studentName)
+  );
+
+  if (byAuthorization && !authorized) {
+    throw new TransitionError(
+      'An authorization letter is required when someone other than the requestor claims.'
+    );
+  }
+
   // Confirm the signing session in the same commit, so the sign device
   // never keeps waiting on a release that already happened.
   const confirmSession = sessionId
@@ -162,6 +225,7 @@ export function bulkRelease(
     actor,
     (_t, now) => ({
       releasedTo,
+      releasedByAuthorization: byAuthorization,
       signature,
       releasedAt: now,
     }),
@@ -183,10 +247,11 @@ export async function releaseTransaction(
   transactionId: string,
   releasedTo: string,
   signature: string,
+  authorized: boolean,
   userId: string,
   userName: string
 ) {
-  const [transaction] = await bulkRelease([transactionId], releasedTo, signature, {
+  const [transaction] = await bulkRelease([transactionId], releasedTo, signature, authorized, {
     id: userId,
     name: userName,
   });

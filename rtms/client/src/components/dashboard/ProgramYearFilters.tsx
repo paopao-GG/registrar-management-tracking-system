@@ -1,5 +1,11 @@
 import { NativeSelect } from '@/components/ui/select';
-import { COURSES, NOT_ENROLLED_YEAR_LEVEL, YEAR_LEVELS, abbreviateCourse } from '@rtams/shared';
+import {
+  COURSES,
+  NOT_ENROLLED_YEAR_LEVEL,
+  YEAR_LEVELS,
+  abbreviateCourse,
+  formatYearOrdinal,
+} from '@rtams/shared';
 
 interface Props {
   program: string;
@@ -44,7 +50,7 @@ export function ProgramYearFilters({
         <option value="">All Years</option>
         {YEAR_LEVELS.map((y: number) => (
           <option key={y} value={y}>
-            Year {y}
+            {formatYearOrdinal(y)}
           </option>
         ))}
         {/* Alumni records are stored with year level 0. */}

@@ -17,7 +17,7 @@ const EXPORTS: Array<{ format: Exclude<ReportFormat, 'json'>; label: string; fil
   { format: 'bup', label: 'BUP-Logbook export', file: 'BUP-Logbook' },
 ];
 
-const prettyDate = (value: string) => formatDateFns(parseISO(value), 'MMM d, yyyy');
+const prettyDate = (value: string) => formatDateFns(parseISO(value), 'yyyy-MM-dd');
 
 export function ReportsPage() {
   const [startDate, setStartDate] = useState('');

@@ -1,7 +1,7 @@
 import { prisma } from '../config/db.js';
 import {
-  DOCUMENT_TYPES,
   formatCourseYear,
+  formatRequestedDocuments,
   formatDuration,
   phDayRange,
   type ArtaReportRow,
@@ -10,11 +10,12 @@ import {
 } from '@rtams/shared';
 import { toDocumentsObject } from '../utils/doc-mapper.js';
 
-const dateFormat = new Intl.DateTimeFormat('en-US', {
+// en-CA formats as YYYY-MM-DD.
+const dateFormat = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Manila',
+  year: 'numeric',
   month: '2-digit',
   day: '2-digit',
-  year: 'numeric',
 });
 
 const timeFormat = new Intl.DateTimeFormat('en-US', {
@@ -39,7 +40,8 @@ function nameDateTime(name: string | null, date: Date | null): NameDateTime {
 async function findReleased(startDate: string, endDate: string) {
   return prisma.transaction.findMany({
     where: {
-      status: 'Released',
+      // Forwarded OTRs are complete from this office's side too.
+      status: { in: ['Released', 'Forwarded'] },
       releasedAt: phDayRange(startDate, endDate),
     },
     include: {
@@ -54,34 +56,16 @@ async function findReleased(startDate: string, endDate: string) {
 type ReleasedTransaction = Awaited<ReturnType<typeof findReleased>>[number];
 
 function servicesSummary(t: ReleasedTransaction) {
-  const docs = toDocumentsObject(t);
-  const services: string[] = DOCUMENT_TYPES.filter((d) => docs[d] > 0).map(
-    (d) => (docs[d] > 1 ? `${d} (${docs[d]})` : d)
-  );
-
-  if (t.othersCount > 0 && t.others) {
-    services.push(t.othersCount > 1 ? `${t.others} (${t.othersCount})` : t.others);
-  }
-
-  return services.join(', ');
+  return formatRequestedDocuments(toDocumentsObject(t), t.others, t.othersCount);
 }
 
-/*
- * The signature is only carried for the logbook file. The JSON
- * preview has no signature column, so it would be a base64 PNG
- * per row for nothing.
- */
-function toArtaRow(
-  t: ReleasedTransaction,
-  includeSignature = false
-): ArtaReportRow {
+function toArtaRow(t: ReleasedTransaction): ArtaReportRow {
   return {
     clientName: t.studentName,
     requestedDocuments: servicesSummary(t),
     contactNumber: t.student.contactNumber ?? '',
     email: t.student.email ?? '',
     transactionDate: formatDate(t.releasedAt),
-    signature: includeSignature ? t.signature : null,
   };
 }
 
@@ -99,7 +83,10 @@ function toBupRow(t: ReleasedTransaction): BupReportRow {
     preparedBy: nameDateTime(t.preparedByName, t.preparedAt),
     reviewedBy: nameDateTime(t.reviewedByName, t.reviewedAt),
     duration: t.duration ? formatDuration(t.duration) : '',
-    releasedTo: nameDateTime(t.releasedTo, t.releasedAt),
+    releasedTo: nameDateTime(
+      t.releasedByAuthorization ? `${t.releasedTo} (Authorized Rep.)` : t.releasedTo,
+      t.releasedAt
+    ),
     signature: t.signature,
   };
 }
@@ -108,8 +95,7 @@ export async function generateReport(startDate: string, endDate: string) {
   const transactions = await findReleased(startDate, endDate);
 
   return {
-    // Called directly: map would pass the index as includeSignature.
-    rows: transactions.map((t) => toArtaRow(t)),
+    rows: transactions.map(toArtaRow),
     period: { startDate, endDate },
     totalTransactions: transactions.length,
   };
@@ -117,7 +103,7 @@ export async function generateReport(startDate: string, endDate: string) {
 
 export async function generateArtaRows(startDate: string, endDate: string) {
   const transactions = await findReleased(startDate, endDate);
-  return transactions.map((t) => toArtaRow(t, true));
+  return transactions.map(toArtaRow);
 }
 
 export async function generateBupRows(startDate: string, endDate: string) {

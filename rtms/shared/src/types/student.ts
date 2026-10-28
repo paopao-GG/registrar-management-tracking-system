@@ -83,3 +83,31 @@ export function formatStudentName(s: {
     ? `${s.lastName}, ${s.firstName} ${middle}`
     : `${s.lastName}, ${s.firstName}`;
 }
+
+function nameTokens(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[.,]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/*
+ * Whether the claimant is one of the requesting students, so no
+ * authorization letter is needed. Word order and punctuation are
+ * ignored ("Juan Dela Cruz" matches "Dela Cruz, Juan"), and a single
+ * letter matches an initial ("Juan D. Dela Cruz").
+ */
+export function isRequestorName(claimant: string, studentNames: string[]): boolean {
+  const claimantTokens = nameTokens(claimant);
+
+  if (claimantTokens.length < 2) return false;
+
+  return studentNames.some((name) => {
+    const tokens = nameTokens(name);
+
+    return claimantTokens.every((c) =>
+      tokens.some((t) => t === c || (c.length === 1 && t.startsWith(c)))
+    );
+  });
+}

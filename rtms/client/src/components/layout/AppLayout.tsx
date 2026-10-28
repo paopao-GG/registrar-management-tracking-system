@@ -198,7 +198,7 @@ export function AppLayout() {
         <div className="print-only mb-4 border-b border-black pb-2">
           <div className="font-display text-lg font-semibold">RTAMS — Bicol University Polangui</div>
           <div className="text-xs">
-            {currentPage?.label ?? 'Report'} · Printed {format(new Date(), 'MMMM d, yyyy h:mm a')}
+            {currentPage?.label ?? 'Report'} · Printed {format(new Date(), 'yyyy-MM-dd h:mm a')}
           </div>
         </div>
         <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6 lg:p-8">

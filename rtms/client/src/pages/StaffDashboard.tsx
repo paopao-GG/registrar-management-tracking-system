@@ -20,6 +20,7 @@ import {
 } from '@/components/transactions/TransactionTable';
 import { ReleaseDialog } from '@/components/transactions/ReleaseDialog';
 import { StartProcessingDialog } from '@/components/transactions/StartProcessingDialog';
+import { ForwardDialog } from '@/components/transactions/ForwardDialog';
 import { ResetSignDeviceButton } from '@/components/transactions/ResetSignDeviceButton';
 import { useAuth } from '@/lib/auth';
 import {
@@ -84,6 +85,9 @@ export function StaffDashboard() {
     useState<ReleaseTarget[]>([]);
 
   const [startProcessingIds, setStartProcessingIds] =
+    useState<string[]>([]);
+
+  const [forwardIds, setForwardIds] =
     useState<string[]>([]);
 
   const [statusFilter, setStatusFilter] = useState('');
@@ -163,8 +167,12 @@ export function StaffDashboard() {
       setTotalMatching(data.total ?? 0);
       setNewRequestsCount(counts['Pending'] ?? 0);
       setProcessingCount(counts['Processing'] ?? 0);
-      setReadyForReleaseCount(counts['Ready for Release'] ?? 0);
-      setCompletedCount(counts['Released'] ?? 0);
+      setReadyForReleaseCount(
+        (counts['Ready for Release'] ?? 0) + (counts['For Forwarding'] ?? 0)
+      );
+      setCompletedCount(
+        (counts['Released'] ?? 0) + (counts['Forwarded'] ?? 0)
+      );
     } catch (error) {
       console.error(
         'Failed to refresh staff dashboard:',
@@ -320,6 +328,8 @@ export function StaffDashboard() {
               <option value="Processing">Processing</option>
               <option value="Ready for Release">Ready for Release</option>
               <option value="Released">Released</option>
+              <option value="For Forwarding">For Forwarding</option>
+              <option value="Forwarded">Forwarded</option>
             </NativeSelect>
 
             <ProgramYearFilters
@@ -362,6 +372,7 @@ export function StaffDashboard() {
               transactions={transactions}
               onStartProcessing={setStartProcessingIds}
               onRelease={setReleaseTargets}
+              onForward={setForwardIds}
               showActions={true}
             />
           ) : (
@@ -384,6 +395,14 @@ export function StaffDashboard() {
         transactionIds={startProcessingIds}
         onClose={() => setStartProcessingIds([])}
         onStarted={fetchData}
+      />
+
+      {/* Forward OTRs */}
+      <ForwardDialog
+        open={forwardIds.length > 0}
+        transactionIds={forwardIds}
+        onClose={() => setForwardIds([])}
+        onForwarded={fetchData}
       />
     </div>
   );

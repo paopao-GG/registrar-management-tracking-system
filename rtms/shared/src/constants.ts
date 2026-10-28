@@ -1,10 +1,49 @@
-export const DOCUMENT_TYPES = ['COR', 'COG', 'GMC', 'AUTH', 'OTR'] as const;
+export const DOCUMENT_TYPES = ['COR', 'COG', 'GMC', 'AUTH'] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
-export const DATE_FORMAT = 'MM-dd-yyyy';
+/*
+ * Every document count a transaction can carry. OTR is no longer a
+ * counter (it goes in Others), but older requests still have docOTR.
+ */
+export const REQUESTED_DOCUMENT_KEYS = [...DOCUMENT_TYPES, 'OTR'] as const;
 
-export const DATETIME_FORMAT = 'MM-dd-yyyy hh:mm a';
+/*
+ * OTRs are released at the main campus: BUP only does the initial
+ * processing, then forwards the request instead of releasing it.
+ */
+export function isOtrRequest(others: string): boolean {
+  return /\bOTR\b|transcript of records/i.test(others);
+}
+
+export const OTR_FORWARDED_TO = 'Main Campus';
+
+/*
+ * One line naming what a request is for, e.g. "COR (2), COG, LOA".
+ * Counts of 1 are left off.
+ */
+export function formatRequestedDocuments(
+  docs: Partial<Record<(typeof REQUESTED_DOCUMENT_KEYS)[number], number>>,
+  others: string,
+  othersCount: number
+): string {
+  const withCount = (label: string, count: number) =>
+    count > 1 ? `${label} (${count})` : label;
+
+  const services: string[] = REQUESTED_DOCUMENT_KEYS.filter(
+    (d) => (docs[d] ?? 0) > 0
+  ).map((d) => withCount(d, docs[d]!));
+
+  if (othersCount > 0 && others.trim()) {
+    services.push(withCount(others.trim(), othersCount));
+  }
+
+  return services.join(', ');
+}
+
+export const DATE_FORMAT = 'yyyy-MM-dd';
+
+export const DATETIME_FORMAT = 'yyyy-MM-dd hh:mm a';
 
 export const COURSES = [
   'Bachelor of Science in Information System',
@@ -120,6 +159,16 @@ export function formatYearLevel(yearLevel: number): string {
   if (yearLevel === 0) return 'Alumni';
   if (yearLevel === NOT_ENROLLED_YEAR_LEVEL) return 'Not Enrolled';
   return String(yearLevel);
+}
+
+/* "1st Year", "2nd Year", ... for an enrolled year level. */
+export function formatYearOrdinal(yearLevel: number): string {
+  const suffix =
+    yearLevel % 100 >= 11 && yearLevel % 100 <= 13
+      ? 'th'
+      : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[yearLevel % 10] ?? 'th';
+
+  return `${yearLevel}${suffix} Year`;
 }
 
 export function formatCourseYear(course: string, yearLevel: number): string {

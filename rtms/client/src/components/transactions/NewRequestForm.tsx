@@ -6,7 +6,14 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentCounter } from './DocumentCounter';
 import { StudentAutocomplete } from '@/components/students/StudentAutocomplete';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
-import { DOCUMENT_TYPES, abbreviateCourse, formatYearLevel } from '@rtams/shared';
+import {
+  DOCUMENT_TYPES,
+  OTR_FORWARDED_TO,
+  abbreviateCourse,
+  formatYearLevel,
+  formatYearOrdinal,
+  isOtrRequest,
+} from '@rtams/shared';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
@@ -31,6 +38,17 @@ export function NewRequestForm({ onCreated }: Props) {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
+  // GMC is only issued to undergraduates.
+  const documentTypes = DOCUMENT_TYPES.filter(
+    (d) => d !== 'GMC' || (selectedStudent && !selectedStudent.isAlumni)
+  );
+  const isOtr = isOtrRequest(others);
+
+  const selectStudent = (student: any) => {
+    setSelectedStudent(student);
+    if (student?.isAlumni) setDocs((current) => ({ ...current, GMC: 0 }));
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) {
@@ -38,9 +56,18 @@ export function NewRequestForm({ onCreated }: Props) {
       return;
     }
 
-    const totalDocs = Object.values(docs).reduce((a, b) => a + b, 0) + othersCount;
+    const counterDocs = Object.values(docs).reduce((a, b) => a + b, 0);
+    const totalDocs = counterDocs + othersCount;
     if (totalDocs === 0) {
       toast.warning('Please select at least one document');
+      return;
+    }
+
+    // OTRs are forwarded, not released, so they go in their own request.
+    if (isOtr && counterDocs > 0) {
+      toast.warning(`OTR is forwarded to the ${OTR_FORWARDED_TO.toLowerCase()}`, {
+        description: 'Save it as a separate request from the other documents.',
+      });
       return;
     }
 
@@ -114,7 +141,7 @@ export function NewRequestForm({ onCreated }: Props) {
               <StudentAutocomplete
                 key={studentFieldKey}
                 selectedName={selectedStudent?.name}
-                onSelect={(s) => setSelectedStudent(s)}
+                onSelect={selectStudent}
               />
             </div>
 
@@ -131,7 +158,7 @@ export function NewRequestForm({ onCreated }: Props) {
                   <Input
                     value={`${abbreviateCourse(selectedStudent.course)} - ${
                       selectedStudent.yearLevel > 0
-                        ? `Year ${selectedStudent.yearLevel}`
+                        ? formatYearOrdinal(selectedStudent.yearLevel)
                         : formatYearLevel(selectedStudent.yearLevel)
                     }`}
                     disabled
@@ -143,7 +170,7 @@ export function NewRequestForm({ onCreated }: Props) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Requested Documents/Services</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {DOCUMENT_TYPES.map((type: string) => (
+                {documentTypes.map((type: string) => (
                   <DocumentCounter
                     key={type}
                     label={type}
@@ -160,8 +187,13 @@ export function NewRequestForm({ onCreated }: Props) {
                 <Input
                   value={others}
                   onChange={(e) => setOthers(e.target.value)}
-                  placeholder="Specify other documents..."
+                  placeholder="Specify other documents (e.g. OTR)..."
                 />
+                {isOtr && (
+                  <p className="text-xs text-muted-foreground">
+                    OTR is released at the {OTR_FORWARDED_TO.toLowerCase()}; this request will be forwarded there.
+                  </p>
+                )}
               </div>
               <DocumentCounter
                 label="Qty"
@@ -182,13 +214,13 @@ export function NewRequestForm({ onCreated }: Props) {
         open={alumniOpen}
         mode="alumni"
         onClose={() => setAlumniOpen(false)}
-        onCreated={(alumni) => setSelectedStudent(alumni)}
+        onCreated={selectStudent}
       />
       <AddStudentDialog
         open={addStudentOpen}
         mode="notEnrolled"
         onClose={() => setAddStudentOpen(false)}
-        onCreated={(student) => setSelectedStudent(student)}
+        onCreated={selectStudent}
       />
     </>
   );

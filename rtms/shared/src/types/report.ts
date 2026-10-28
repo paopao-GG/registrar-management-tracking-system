@@ -13,7 +13,6 @@ export interface ArtaReportRow {
   contactNumber: string;
   email: string;
   transactionDate: string;
-  signature: string | null;
 }
 
 export interface NameDateTime {

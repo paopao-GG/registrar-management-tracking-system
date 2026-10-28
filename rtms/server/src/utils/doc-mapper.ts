@@ -25,6 +25,7 @@ export function toApiTransaction(t: any) {
     reviewedAt: t.reviewedAt,
     duration: t.duration,
     releasedTo: t.releasedTo,
+    releasedByAuthorization: t.releasedByAuthorization,
     signature: t.signature,
     releasedAt: t.releasedAt,
     createdAt: t.createdAt,

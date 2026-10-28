@@ -3,6 +3,9 @@ export enum TransactionStatus {
   PROCESSING = 'Processing',
   READY_FOR_RELEASE = 'Ready for Release',
   RELEASED = 'Released',
+  // OTR requests: signed here, then forwarded to the main campus.
+  FOR_FORWARDING = 'For Forwarding',
+  FORWARDED = 'Forwarded',
 }
 
 export interface RequestedDocuments {

@@ -72,6 +72,8 @@ model Transaction {
   reviewedAt       DateTime?
   duration         Int?
   releasedTo       String?
+  // Claimed by someone other than the requestor, with an authorization letter.
+  releasedByAuthorization Boolean @default(false)
   signature        String?
   releasedAt       DateTime?
   createdAt        DateTime  @default(now())

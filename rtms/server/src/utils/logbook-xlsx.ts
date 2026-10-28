@@ -16,7 +16,7 @@ const thin: Partial<ExcelJS.Borders> = {
   right: { style: 'thin' },
 };
 
-const DOC_COLUMNS = ['COR', 'COG', 'GMC', 'AUTH', 'OTR', 'OTHERS'] as const;
+const DOC_COLUMNS = ['COR', 'COG', 'GMC', 'AUTH', 'OTHERS'] as const;
 
 /*
  * OTHERS carries a service name, not just a count, so it is wider than the
@@ -119,11 +119,25 @@ function nameWithDate(value: NameDateTime) {
   return value.dateTime ? `${value.name}\n${value.dateTime}` : value.name;
 }
 
-/* The service a row availed outside the named columns, e.g. "LOA - 1". */
-function othersCell(r: BupReportRow) {
+/*
+ * The services a row availed outside the named columns. OTR is no longer
+ * a column, so older requests' OTR counts are listed here as well.
+ */
+function othersEntries(r: BupReportRow) {
+  const entries: { label: string; count: number }[] = [];
   const label = r.othersLabel?.trim();
 
-  return label && r.OTHERS > 0 ? `${label} - ${r.OTHERS}` : '';
+  if (r.OTR > 0) entries.push({ label: 'OTR', count: r.OTR });
+  if (label && r.OTHERS > 0) entries.push({ label, count: r.OTHERS });
+
+  return entries;
+}
+
+/* e.g. "LOA - 1". */
+function othersCell(r: BupReportRow) {
+  return othersEntries(r)
+    .map(({ label, count }) => `${label} - ${count}`)
+    .join('\n');
 }
 
 /*
@@ -135,18 +149,16 @@ function buildOthersTotal(rows: BupReportRow[]) {
   const counts = new Map<string, { label: string; count: number }>();
 
   rows.forEach((r) => {
-    const label = r.othersLabel?.trim();
+    othersEntries(r).forEach(({ label, count }) => {
+      const key = label.toLowerCase();
+      const entry = counts.get(key);
 
-    if (!label || r.OTHERS <= 0) return;
-
-    const key = label.toLowerCase();
-    const entry = counts.get(key);
-
-    if (entry) {
-      entry.count += r.OTHERS;
-    } else {
-      counts.set(key, { label, count: r.OTHERS });
-    }
+      if (entry) {
+        entry.count += count;
+      } else {
+        counts.set(key, { label, count });
+      }
+    });
   });
 
   return Array.from(counts.values())
@@ -165,7 +177,6 @@ export async function buildArtaWorkbook(rows: ArtaReportRow[]) {
     'Client Contact',
     'Client Contact Info (Email Address)',
     'Day of Service Completion',
-    'Signature',
   ];
 
   sheet.columns = [
@@ -175,7 +186,6 @@ export async function buildArtaWorkbook(rows: ArtaReportRow[]) {
     { width: 18 },
     { width: 42 },
     { width: 28 },
-    { width: 22 },
   ];
 
   addArtaHeader(sheet, headers.length);
@@ -197,28 +207,12 @@ export async function buildArtaWorkbook(rows: ArtaReportRow[]) {
       r.contactNumber || 'NONE',
       r.email,
       r.transactionDate,
-      '',
     ]);
 
-    // Tall enough for the signature image below.
-    row.height = 42;
+    row.height = 22;
     styleBodyRow(row, headers.length);
     row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
     row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
-
-    // Signatures are transparent PNGs from the sign page canvas.
-    if (r.signature?.startsWith('data:image/png;base64,')) {
-      const imageId = workbook.addImage({
-        base64: r.signature,
-        extension: 'png',
-      });
-
-      sheet.addImage(imageId, {
-        tl: { col: 6.05, row: row.number - 1 + 0.05 },
-        ext: { width: 150, height: 50 },
-        editAs: 'oneCell',
-      });
-    }
   });
 
   sheet.views = [{ state: 'frozen', ySplit: 5 }];

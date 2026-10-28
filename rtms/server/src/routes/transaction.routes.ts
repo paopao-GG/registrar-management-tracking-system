@@ -18,6 +18,7 @@ import {
   bulkStartProcessing,
   bulkSign,
   bulkRelease,
+  bulkForward,
   TransitionError,
 } from '../services/transaction.service.js';
 
@@ -167,6 +168,7 @@ export async function transactionRoutes(app: FastifyInstance) {
           id,
           parsed.data.releasedTo,
           parsed.data.signature,
+          parsed.data.authorized,
           request.user.id,
           request.user.name
         );
@@ -218,6 +220,26 @@ export async function transactionRoutes(app: FastifyInstance) {
     }
   );
 
+  // Bulk Forward signed OTRs to the main campus - Staff
+  app.post(
+    '/api/transactions/bulk/forward',
+    { preHandler: requireStaff },
+    async (request, reply) => {
+      const parsed = bulkIdsSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply.status(400).send({ error: parsed.error.issues[0].message });
+      }
+
+      try {
+        const transactions = await bulkForward(parsed.data.ids, request.user);
+        return { transactions };
+      } catch (error) {
+        return sendTransitionError(request, reply, error);
+      }
+    }
+  );
+
   // Bulk Release to one claimant with one signature - Staff
   app.post(
     '/api/transactions/bulk/release',
@@ -234,6 +256,7 @@ export async function transactionRoutes(app: FastifyInstance) {
           parsed.data.ids,
           parsed.data.releasedTo,
           parsed.data.signature,
+          parsed.data.authorized,
           request.user,
           parsed.data.sessionId
         );
