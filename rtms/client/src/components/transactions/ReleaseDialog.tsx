@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
-import { AlertTriangle, CheckCircle2, PackageCheck, Smartphone } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileText, PackageCheck, Smartphone } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { isRequestorName } from '@rtams/shared';
@@ -31,6 +31,7 @@ export function ReleaseDialog({
   const [releasedTo, setReleasedTo] = useState('');
   // Staff checked the authorization letter of a non-requestor claimant.
   const [authorized, setAuthorized] = useState(false);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const suggestionListRef = useRef<HTMLDivElement>(null);
@@ -78,6 +79,7 @@ export function ReleaseDialog({
     if (open) {
       setReleasedTo('');
       setAuthorized(false);
+      setDocumentsOpen(false);
       setSuggestions([]);
       setSendingToDevice(false);
       setSessionId(null);
@@ -158,20 +160,24 @@ export function ReleaseDialog({
       }
     };
 
-    checkSession();
-
     /*
-     * Check every 200 ms so the staff screen reacts
-     * almost immediately after the claimant taps Done.
+     * Check again 200 ms after each answer, so the staff screen reacts
+     * almost immediately after the claimant taps Done. Waiting for the
+     * answer keeps a slow server from piling up checks, which used to
+     * queue a Cancel Signing behind them.
      */
-    const interval = setInterval(
-      checkSession,
-      200
-    );
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      await checkSession();
+      if (mounted) timer = setTimeout(poll, 200);
+    };
+
+    poll();
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      clearTimeout(timer);
     };
   }, [sessionId]);
 
@@ -286,27 +292,34 @@ export function ReleaseDialog({
   };
 
   /*
-   * Cancel signing.
+   * Cancel signing. The dialog resets straight away, which also stops
+   * the polling; the sign device is told in the background.
    */
   const handleCancelSigning = async () => {
     if (!sessionId) return;
 
-    try {
-      await api.delete(
-        `/signing/sessions/${sessionId}`
-      );
-    } catch (err) {
-      console.error(
-        'Failed to cancel signing session',
-        err
-      );
-    }
+    const cancelledId = sessionId;
 
     setSessionId(null);
     setSendingToDevice(false);
     setSignatureReceived(false);
     setSignature(null);
     setLiveSignature(null);
+
+    try {
+      await api.delete(
+        `/signing/sessions/${cancelledId}`
+      );
+    } catch (err) {
+      console.error(
+        'Failed to cancel signing session',
+        err
+      );
+
+      toast.error(
+        'Could not cancel on the sign device. Use Reset Sign Device if it stays on the signature screen.'
+      );
+    }
   };
 
   /*
@@ -407,20 +420,47 @@ export function ReleaseDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="rounded-md border bg-muted/40 p-3 text-sm">
-          <p className="font-medium">
-            Documents to claim{count > 1 && ' (one claimant signs for all)'}:
-          </p>
-
-          <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto text-muted-foreground">
+        {/* One request is listed inline; more open in their own window. */}
+        {count > 1 ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setDocumentsOpen(true)}
+            className="w-full"
+          >
+            <FileText className="h-4 w-4" />
+            View documents to claim ({count})
+          </Button>
+        ) : (
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">Documents to claim:</p>
             {transactions.map((t) => (
-              <li key={t.id}>
+              <p key={t.id} className="mt-1 text-muted-foreground">
                 <span className="text-foreground">{t.studentName}</span>
                 {t.documents && ` — ${t.documents}`}
-              </li>
+              </p>
             ))}
-          </ul>
-        </div>
+          </div>
+        )}
+
+        <Dialog open={documentsOpen} onOpenChange={setDocumentsOpen}>
+          <DialogContent aria-describedby={undefined}>
+            <DialogHeader>
+              <DialogTitle>Documents to claim:</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              One claimant signs for all {count} requests.
+            </p>
+            <ul className="max-h-[60vh] space-y-2 overflow-y-auto text-sm text-muted-foreground">
+              {transactions.map((t) => (
+                <li key={t.id} className="border-b border-border/60 pb-2 last:border-0">
+                  <span className="text-foreground">{t.studentName}</span>
+                  {t.documents && ` — ${t.documents}`}
+                </li>
+              ))}
+            </ul>
+          </DialogContent>
+        </Dialog>
 
         <form
           onSubmit={handleSubmit}
