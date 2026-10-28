@@ -58,3 +58,40 @@ Requested in [v2.md](v2.md). Design details are in [TECHNICAL_DESIGN.md](TECHNIC
 
 - Students now have optional Sex and Contact Number (also accepted as roster import columns)
 - Database migration: `20260917000000_v2_updates`
+
+---
+
+# October 2026 updates (implemented October 28, 2026)
+
+Design details are in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
+
+# general
+
+- Dates shown as YYYY-MM-DD everywhere, including the logbooks; the dashboard greeting keeps the long form ("Wednesday, October 28, 2026")
+- Year Level filters and forms read 1st Year, 2nd Year, 3rd Year, 4th Year
+
+# staff
+
+- OTR removed from the document counters; it is typed under Others
+- GMC counter shown only for undergraduates (hidden for alumni)
+- An OTR request must be saved on its own, not combined with other documents
+- Signed OTR requests go to **For Forwarding**; staff click **Forward** (no claimant signature) and they become **Forwarded**, released to "Main Campus"
+- Authorization letter required when the claimant is not one of the requestors; staff tick "Authorization letter received and verified", and the release is recorded as by an authorized representative
+- Release dialog lists the documents to claim; two or more open from **View documents to claim (n)**
+- Cancel Signing responds at once on the deployed site
+
+# admin
+
+- ARTA logbook: Signature column removed
+- BUP logbook: OTR column removed (OTR listed under OTHERS); "(Authorized Rep.)" added to Released To/Claimed By when it applies
+- Both logbooks include forwarded OTRs
+- Status filters include For Forwarding and Forwarded
+
+# sign page
+
+- Shows the documents to claim (a pop-up for two or more) and "Authorized Representative" when it applies
+- Data Privacy notice fits a phone held sideways without scrolling
+
+# data
+
+- Database migration: `20261028000000_release_authorization`

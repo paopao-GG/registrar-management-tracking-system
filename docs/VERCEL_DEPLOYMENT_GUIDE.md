@@ -49,7 +49,7 @@ All three parts of the monorepo (`shared`, `server`, `client`) build together in
 
 Run this from your local machine to create the tables (User, Student, Transaction, AuditLog, SigningSession, SignDeviceLock) or to apply new migrations.
 
-**Apply new migrations before deploying code that needs them.** The v2 release adds the migration `20260917000000_v2_updates` (renames CMC to GMC, adds student Sex/Contact Number/alumni fields, staff activity, signing consent and the sign device lock). The v2 code will fail against a database that hasn't been migrated. The later migration `20261026000000_rename_sign_device_lock` renames the lock table to `SignDeviceLock`; apply it before deploying the code that uses the new name.
+**Apply new migrations before deploying code that needs them.** The v2 release adds the migration `20260917000000_v2_updates` (renames CMC to GMC, adds student Sex/Contact Number/alumni fields, staff activity, signing consent and the sign device lock). The v2 code will fail against a database that hasn't been migrated. The later migration `20261026000000_rename_sign_device_lock` renames the lock table to `SignDeviceLock`; apply it before deploying the code that uses the new name. The October 2026 update adds `20261028000000_release_authorization` (the `Transaction.releasedByAuthorization` column); releases and transaction lists fail until it is applied.
 
 ```powershell
 cd rtms/server

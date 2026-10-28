@@ -143,9 +143,9 @@ Reports generated on demand
 | F-02 | Staff Dashboard | Must | Summary cards, new request form and the day's transactions (one day at a time, default today) with bulk Start Processing and Release |
 | F-03 | Transaction Encoding | Must | New request form with student autocomplete, document type counters, auto-timestamps |
 | F-04 | Student Database | Must | Roster import (CSV/XLSX) as the source of enrolled students; manual add; autocomplete search; alumni requesters added from the request form |
-| F-05 | Status Tracking | Must | Pending → Processing → Ready for Release → Released |
+| F-05 | Status Tracking | Must | Pending → Processing → Ready for Release → Released. OTR requests: Pending → Processing → For Forwarding → Forwarded (released at the main campus). |
 | F-06 | Document Review/Signing | Must | Registrar marks documents as reviewed/signed |
-| F-07 | Document Release | Must | Staff records the claimant name; the claimant signs on the sign device after giving Data Privacy consent; auto-timestamp. One signature can release several requests. |
+| F-07 | Document Release | Must | Staff records the claimant name; the claimant signs on the sign device after giving Data Privacy consent; auto-timestamp. One signature can release several requests. A claimant who is not the requestor needs an authorization letter, which staff must confirm and which is recorded. |
 | F-08 | Duration Calculation | Must | Auto-calculate: Prepared → Signed timestamp (calendar time) |
 | F-09 | Admin Dashboard | Must | Summary cards and all staff's requests for a selected day, status filter, bulk Sign |
 | F-10 | Summary Reports | Must | By date range; export the ARTA-Logbook and BUP-Logbook as Excel (.xlsx) |
@@ -177,6 +177,19 @@ Reports generated on demand
 | V2-09 | Data Privacy consent | Claimant must tick a consent box before the signature is accepted |
 | V2-10 | Sign device security | Sign page usable on one device only and only while staff are active |
 
+### October 2026 Updates (implemented)
+
+| ID | Feature | Description |
+|---|---|---|
+| U-01 | Date format | All dates shown as YYYY-MM-DD, including the logbooks; the dashboard greeting spells the day out |
+| U-02 | OTR forwarding | OTR is entered under Others and saved as its own request; after signing it is forwarded to the main campus instead of released |
+| U-03 | GMC for undergraduates | The GMC counter appears only for non-alumni requesters |
+| U-04 | Authorization letters | Required, and recorded, when the claimant is not one of the requestors |
+| U-05 | Documents to claim | Listed in the release dialog and on the sign page; two or more open in a pop-up |
+| U-06 | Logbook columns | ARTA logbook has no Signature column; BUP logbook drops the OTR column (OTR appears under OTHERS) |
+| U-07 | Year labels | Filters and forms read 1st Year to 4th Year |
+| U-08 | Landscape consent | The Data Privacy notice fits a sideways phone without scrolling |
+
 ### Out of Scope
 - Student-facing portal or self-service
 - Online payment processing
@@ -194,7 +207,7 @@ Reports generated on demand
 ```
 Login → Staff Dashboard → New Request form →
 Search student (or click "Alumni" to add an alumni requester) → Program & Year auto-fill →
-Select document types (counter buttons: COR, COG, GMC, AUTH, OTR, Others) → Save →
+Select document types (counter buttons: COR, COG, AUTH, GMC for undergraduates; OTR and anything else under Others) → Save →
 Status = Pending, timestamps auto-recorded
 ```
 
@@ -207,15 +220,22 @@ Start Processing → Status = Processing
 **Flow 3: Review & Sign (Admin)**
 ```
 Login → Admin Dashboard → select one or more Processing requests →
-Sign → Status = Ready for Release, reviewer + timestamp recorded, duration calculated
+Sign → Status = Ready for Release (OTR: For Forwarding), reviewer + timestamp recorded, duration calculated
 ```
 
 **Flow 4: Release Document (Staff)**
 ```
 Staff Dashboard → select one or more Ready for Release requests →
-Enter claimant name → Send to Sign Device →
+Enter claimant name (confirm the authorization letter if the claimant is not the requestor) →
+Send to Sign Device →
 Claimant agrees to the Data Privacy notice and signs on the sign device →
 Staff confirms → Status = Released (one signature for all selected requests)
+```
+
+**Flow 5: Forward OTR (Staff)**
+```
+Staff Dashboard → select one or more For Forwarding requests →
+Forward → Status = Forwarded (Released To = Main Campus)
 ```
 
 ### Information Architecture
@@ -272,7 +292,7 @@ Staff confirms → Status = Released (one signature for all selected requests)
 |---|---|
 | `User` | name, username, passwordHash, role (admin/staff), status (active/inactive), lastActiveAt |
 | `Student` | studentNumber, lastName, firstName, middleName, email, sex, contactNumber, course, yearLevel, active, isAlumni |
-| `Transaction` | studentId, student snapshot (name, course, year), docCOR, docCOG, docGMC, docAUTH, docOTR, others, othersCount, status, preparedBy/At, reviewedBy/At, duration, releasedTo, releasedAt, signature |
+| `Transaction` | studentId, student snapshot (name, course, year), docCOR, docCOG, docGMC, docAUTH, docOTR, others, othersCount, status, preparedBy/At, reviewedBy/At, duration, releasedTo, releasedByAuthorization, releasedAt, signature |
 | `AuditLog` | transactionId, action, previousStatus, newStatus, performedBy, timestamp |
 | `SigningSession` | transactionIds, token, releasedTo, liveSignature, status, consentAt |
 | `SignDeviceLock` | deviceId, lastSeenAt (single row: the registered sign device) |
@@ -296,7 +316,8 @@ Staff confirms → Status = Released (one signature for all selected requests)
 | POST | `/api/transactions` | Create new transaction |
 | POST | `/api/transactions/bulk/start` | Start processing one or more requests (staff) |
 | POST | `/api/transactions/bulk/sign` | Sign one or more requests (admin) |
-| POST | `/api/transactions/bulk/release` | Release one or more requests with one signature (staff) |
+| POST | `/api/transactions/bulk/release` | Release one or more requests with one signature (staff); `authorized` confirms an authorization letter |
+| POST | `/api/transactions/bulk/forward` | Forward one or more signed OTR requests to the main campus (staff) |
 | GET | `/api/students` | Search students (autocomplete) |
 | GET | `/api/students/directory` | Enrolled student directory with total and program filter (admin) |
 | POST | `/api/students` | Add a student or alumni requester |
