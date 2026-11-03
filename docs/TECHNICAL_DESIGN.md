@@ -254,8 +254,13 @@ A session that a claimant signed but nobody confirmed expires like a pending one
 
 ## 6. Students
 
-- **Search** (`GET /api/students?q=`) returns up to 10 students for the request form's autocomplete: enrolled students and alumni first, then not-enrolled students.
-- **Directory** (`GET /api/students/directory`, admin only) returns active, non-alumni students with pagination (50 per page) and a `total`. It can be filtered by program alias (e.g. `course=BSIT`) and by a search term. This backs the "Enrolled Students" page.
+- **Search** (`GET /api/students?q=`) returns up to 10 students for the request form's autocomplete, from the **current roster only** (`active = true`, `isAlumni = false`).
+- **Directory** (`GET /api/students/directory`, admin only) returns students with pagination (50 per page) and a `total`. `group` picks the list: `enrolled` (default; active, non-alumni), `alumni` (`isAlumni = true`) or `notEnrolled` (`active = false`, non-alumni). Any other value is a 400. It can be filtered by program alias (e.g. `course=BSIT`) and by a search term. This backs the Students page and its Enrolled / Alumni / Not Enrolled selector.
+- **Reusing saved records.** Alumni and request-only students are not searchable, so staff re-enter them on each visit. For those adds, `POST /api/students` first looks for an existing record:
+  - by `studentNumber` when one is given;
+  - otherwise by first and last name (case-insensitive) and program, among alumni for the Alumni button, or not-enrolled students for Add Student.
+
+  A match is updated with the details sent and returned with `200`. Optional fields left blank keep their saved values. The Alumni button also sets `isAlumni = true`, `yearLevel = 0`, so a not-enrolled student who graduated becomes alumni. A number belonging to an enrolled student returns `409`. With no match a new record is created (`201`). An admin enrolling a student from the Students page always creates.
 - **Import** (`POST /api/students/bulk`) treats the uploaded file as the complete current roster, inside one database transaction:
   - students in the file are created or updated (and reactivated if needed);
   - non-alumni students missing from the file are marked inactive;

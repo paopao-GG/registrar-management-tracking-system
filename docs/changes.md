@@ -92,6 +92,12 @@ Design details are in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
 - Shows the documents to claim (a pop-up for two or more) and "Authorized Representative" when it applies
 - Data Privacy notice fits a phone held sideways without scrolling
 
+# students
+
+- The request form's student search shows only the current roster; alumni and not-enrolled students are entered with the Alumni / Add Student buttons
+- Re-adding an alumnus or not-enrolled student reuses their saved record (matched by student number, or name and program)
+- Admin Students page: Enrolled / Alumni / Not Enrolled list selector; Remove only in the Enrolled list
+
 # data
 
 - Database migration: `20261028000000_release_authorization`

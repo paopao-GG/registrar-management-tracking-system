@@ -28,6 +28,13 @@ type DirectoryRow = {
   yearLevel: number;
 };
 
+// The lists on the admin Students page.
+const DIRECTORY_GROUPS: Record<string, Prisma.StudentWhereInput> = {
+  enrolled: { active: true, isAlumni: false },
+  alumni: { isAlumni: true },
+  notEnrolled: { active: false, isAlumni: false },
+};
+
 // Rows per INSERT; 500 rows x 10 values stays far below Postgres's bind-parameter limit.
 const UPSERT_CHUNK_SIZE = 500;
 
@@ -88,14 +95,17 @@ export async function studentRoutes(app: FastifyInstance) {
   /*
    * Search students for the request form.
    *
-   * Students missing from the current roster are included
-   * as Not Enrolled, after enrolled students and alumni.
+   * Only the current roster is searched. Alumni and not-enrolled
+   * students are entered with the Alumni / Add Student buttons,
+   * which reuse their saved record (see POST below).
    */
   app.get('/api/students', async (request) => {
     const { q } = request.query as { q?: string };
     const term = q?.trim();
 
     const where = {
+      active: true,
+      isAlumni: false,
       ...(term
         ? {
             OR: [
@@ -126,7 +136,6 @@ export async function studentRoutes(app: FastifyInstance) {
       where,
       take: 10,
       orderBy: [
-        { active: 'desc' },
         { lastName: 'asc' },
         { firstName: 'asc' },
       ],
@@ -138,8 +147,10 @@ export async function studentRoutes(app: FastifyInstance) {
   /*
    * Student directory — Admin only.
    *
-   * Paginated list of active students with a total count,
-   * optionally filtered by program alias (e.g. BSIT).
+   * Paginated list of students with a total count, optionally
+   * filtered by program alias (e.g. BSIT). `group` picks the list:
+   * the enrolled roster (default), alumni, or not-enrolled students
+   * (added from the request form or missing from the latest roster).
    */
   app.get('/api/students/directory', async (request, reply) => {
     if (request.user.role !== 'admin') {
@@ -153,7 +164,16 @@ export async function studentRoutes(app: FastifyInstance) {
       course?: string;
       page?: string;
       limit?: string;
+      group?: string;
     };
+
+    const groupFilter = DIRECTORY_GROUPS[query.group ?? 'enrolled'];
+
+    if (!groupFilter) {
+      return reply.status(400).send({
+        error: `Invalid group '${query.group}'`,
+      });
+    }
 
     const term = query.q?.trim();
     const course = query.course
@@ -173,9 +193,7 @@ export async function studentRoutes(app: FastifyInstance) {
     );
 
     const where = {
-      active: true,
-      // Alumni are request-only records, not enrolled students.
-      isAlumni: false,
+      ...groupFilter,
       ...(course ? { course } : {}),
       ...(term
         ? {
@@ -423,6 +441,60 @@ export async function studentRoutes(app: FastifyInstance) {
       !parsed.data.isAlumni &&
       (parsed.data.notEnrolled === true ||
         request.user.role !== 'admin');
+
+    /*
+     * Alumni and request-only students are not in the search, so staff
+     * enter them again on each visit. Reuse the saved record, matched by
+     * student number or else by name and program, rather than saving the
+     * same person twice. Enrolling from the Students page is unchanged.
+     */
+    if (parsed.data.isAlumni || requestOnly) {
+      const studentNumber = parsed.data.studentNumber?.trim();
+      const isAlumni = parsed.data.isAlumni === true;
+
+      const existing = studentNumber
+        ? await prisma.student.findUnique({ where: { studentNumber } })
+        : await prisma.student.findFirst({
+            where: {
+              lastName: { equals: parsed.data.lastName.trim(), mode: 'insensitive' },
+              firstName: { equals: parsed.data.firstName.trim(), mode: 'insensitive' },
+              course,
+              ...(isAlumni
+                ? { isAlumni: true }
+                : { active: false, isAlumni: false }),
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+
+      if (existing) {
+        if (existing.active && !existing.isAlumni) {
+          return reply.status(409).send({
+            error:
+              'This student is enrolled. Search for them by name or student number instead.',
+          });
+        }
+
+        // Blank optional fields keep what is already on file.
+        const student = await prisma.student.update({
+          where: { id: existing.id },
+          data: {
+            lastName: parsed.data.lastName,
+            firstName: parsed.data.firstName,
+            middleName: parsed.data.middleName ?? undefined,
+            email: parsed.data.email ?? undefined,
+            sex: parsed.data.sex ?? undefined,
+            contactNumber: parsed.data.contactNumber ?? undefined,
+            course,
+            // A not-enrolled student who has since graduated becomes alumni.
+            ...(isAlumni
+              ? { isAlumni: true, yearLevel: 0, active: true }
+              : {}),
+          },
+        });
+
+        return reply.status(200).send(toApiStudent(student));
+      }
+    }
 
     try {
       const student = await prisma.student.create({

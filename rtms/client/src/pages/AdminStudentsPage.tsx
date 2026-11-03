@@ -34,6 +34,34 @@ interface Student {
 const PAGE_SIZE = 50;
 const PROGRAMS = Object.keys(COURSE_ALIASES).sort();
 
+/*
+ * The lists the directory can show. Alumni and not-enrolled students are
+ * kept out of the request form's search, so this is where they are seen.
+ */
+const GROUPS = {
+  enrolled: {
+    label: 'Enrolled',
+    title: 'Enrolled Students',
+    noun: 'students',
+    empty: 'Use Import CSV/XLSX above to add students.',
+  },
+  alumni: {
+    label: 'Alumni',
+    title: 'Alumni',
+    noun: 'alumni',
+    empty: 'Staff add alumni with the Alumni button on the request form.',
+  },
+  notEnrolled: {
+    label: 'Not Enrolled',
+    title: 'Not Enrolled Students',
+    noun: 'students',
+    empty:
+      'Students added with Add Student on the request form, or missing from the latest roster, appear here.',
+  },
+} as const;
+
+type Group = keyof typeof GROUPS;
+
 export function AdminStudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [total, setTotal] = useState(0);
@@ -41,6 +69,7 @@ export function AdminStudentsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [program, setProgram] = useState('');
+  const [group, setGroup] = useState<Group>('enrolled');
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,6 +79,10 @@ export function AdminStudentsPage() {
   const confirm = useConfirm();
   const toast = useToast();
 
+  // Removal means leaving the enrolled directory, so only that list offers it.
+  const canRemove = group === 'enrolled';
+  const groupInfo = GROUPS[group];
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
@@ -58,12 +91,12 @@ export function AdminStudentsPage() {
   // New filters start from the first page.
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, program]);
+  }, [debouncedSearch, program, group]);
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: PAGE_SIZE };
+      const params: Record<string, string | number> = { page, limit: PAGE_SIZE, group };
       if (debouncedSearch) params.q = debouncedSearch;
       if (program) params.course = program;
       const { data } = await api.get('/students/directory', { params });
@@ -75,7 +108,7 @@ export function AdminStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, program, page]);
+  }, [debouncedSearch, program, group, page]);
 
   useEffect(() => {
     fetchStudents();
@@ -222,13 +255,23 @@ export function AdminStudentsPage() {
         <CardHeader>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <CardTitle>Enrolled Students</CardTitle>
+              <CardTitle>{groupInfo.title}</CardTitle>
               <Badge variant="secondary" className="tabular font-mono">
-                {filtered ? `${total} matching` : `Total: ${total} students`}
+                {filtered ? `${total} matching` : `Total: ${total} ${groupInfo.noun}`}
               </Badge>
               {loading && students.length > 0 && <Spinner size="sm" className="text-muted-foreground" />}
             </div>
             <div data-print-hide className="flex flex-col gap-2 sm:flex-row">
+              <NativeSelect
+                className="sm:w-40"
+                value={group}
+                onChange={(e) => setGroup(e.target.value as Group)}
+                aria-label="Show list"
+              >
+                {(Object.keys(GROUPS) as Group[]).map((g) => (
+                  <option key={g} value={g}>{GROUPS[g].label}</option>
+                ))}
+              </NativeSelect>
               <NativeSelect
                 className="sm:w-44"
                 value={program}
@@ -259,17 +302,17 @@ export function AdminStudentsPage() {
           {!loading && students.length === 0 && (
             <EmptyState
               icon={filtered ? Search : GraduationCap}
-              title={filtered ? 'No students match your filters' : 'No students yet'}
+              title={filtered ? `No ${groupInfo.noun} match your filters` : `No ${groupInfo.noun} yet`}
               hint={
                 filtered
                   ? 'Try a different name, number, or program.'
-                  : 'Use Import CSV/XLSX above to add students.'
+                  : groupInfo.empty
               }
             />
           )}
           {students.length > 0 && (
             <>
-              {selected.size > 0 && (
+              {canRemove && selected.size > 0 && (
                 <div
                   data-print-hide
                   className="flex flex-wrap items-center gap-2 rounded-md border border-seal/40 bg-seal/10 px-3 py-2 animate-in fade-in-0 slide-in-from-top-1"
@@ -308,30 +351,32 @@ export function AdminStudentsPage() {
                 <table className="data-table w-full text-sm">
                   <thead className="border-b">
                     <tr className="bg-muted/60 text-left">
-                      <th className="w-8 px-3 py-2.5" data-print-hide>
-                        <input
-                          type="checkbox"
-                          aria-label="Select all students on this page"
-                          title="Select all on this page"
-                          className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
-                          checked={allSelected}
-                          // Partly selected pages are the common case here.
-                          ref={(el) => {
-                            if (el) {
-                              el.indeterminate =
-                                selected.size > 0 && !allSelected;
-                            }
-                          }}
-                          onChange={toggleAll}
-                        />
-                      </th>
+                      {canRemove && (
+                        <th className="w-8 px-3 py-2.5" data-print-hide>
+                          <input
+                            type="checkbox"
+                            aria-label="Select all students on this page"
+                            title="Select all on this page"
+                            className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
+                            checked={allSelected}
+                            // Partly selected pages are the common case here.
+                            ref={(el) => {
+                              if (el) {
+                                el.indeterminate =
+                                  selected.size > 0 && !allSelected;
+                              }
+                            }}
+                            onChange={toggleAll}
+                          />
+                        </th>
+                      )}
                       <th className="px-3 py-2.5 whitespace-nowrap">Student #</th>
                       <th className="px-3 py-2.5">Name</th>
                       <th className="px-3 py-2.5">Program</th>
                       <th className="px-3 py-2.5">Year</th>
                       <th className="px-3 py-2.5 whitespace-nowrap">BU Email</th>
                       <th className="px-3 py-2.5 whitespace-nowrap">Contact Number</th>
-                      <th className="px-3 py-2.5" data-print-hide>Action</th>
+                      {canRemove && <th className="px-3 py-2.5" data-print-hide>Action</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -343,15 +388,17 @@ export function AdminStudentsPage() {
                           selected.has(s._id) && 'bg-seal/5'
                         )}
                       >
-                        <td className="px-3 py-2.5" data-print-hide>
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${s.name}`}
-                            className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
-                            checked={selected.has(s._id)}
-                            onChange={() => toggleOne(s._id)}
-                          />
-                        </td>
+                        {canRemove && (
+                          <td className="px-3 py-2.5" data-print-hide>
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${s.name}`}
+                              className="h-4 w-4 cursor-pointer align-middle accent-[hsl(var(--primary))]"
+                              checked={selected.has(s._id)}
+                              onChange={() => toggleOne(s._id)}
+                            />
+                          </td>
+                        )}
                         <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{s.studentNumber}</td>
                         <td className="px-3 py-2.5 font-medium">{s.name}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap" title={s.course}>
@@ -364,18 +411,20 @@ export function AdminStudentsPage() {
                         <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
                           {s.contactNumber ?? '—'}
                         </td>
-                        <td className="px-3 py-2.5" data-print-hide>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:border-destructive/40 hover:bg-destructive hover:text-destructive-foreground"
-                            loading={removingId === s._id}
-                            onClick={() => handleRemove(s)}
-                          >
-                            {removingId !== s._id && <Trash2 className="h-3.5 w-3.5" />}
-                            Remove
-                          </Button>
-                        </td>
+                        {canRemove && (
+                          <td className="px-3 py-2.5" data-print-hide>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:border-destructive/40 hover:bg-destructive hover:text-destructive-foreground"
+                              loading={removingId === s._id}
+                              onClick={() => handleRemove(s)}
+                            >
+                              {removingId !== s._id && <Trash2 className="h-3.5 w-3.5" />}
+                              Remove
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

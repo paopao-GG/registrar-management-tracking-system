@@ -70,11 +70,12 @@
   - Required: Student Number, Last Name, First Name, Program, Year Level.
   - Optional: Middle Name, Email Address, **Sex** (M/F), **Contact Number**.
 - Programs may be written in full or abbreviated (e.g. BSIT). Tables show the abbreviation.
-- When encoding a request, the Student Name field searches by surname or student number. It also finds students who are not enrolled this semester, listed after enrolled students.
+- When encoding a request, the Student Name field searches by surname or student number. It finds **only students in the current roster**; alumni and not-enrolled students are entered with the **Alumni** and **Add Student** buttons instead.
+- Re-entering someone already saved **reuses their record** rather than saving them twice. The record is matched by student number, or, without one, by the same name and program. The details entered update it; blank fields keep what is on file. A student number belonging to an enrolled student is refused with a reminder to search for them instead.
 - **Alumni** are graduates and are not in the roster. Staff add them with the **Alumni** button on the request form, using the same details as a student except Year Level. Alumni are shown as "Alumni" in place of a year level and are never deactivated by a roster import.
 - **Not Enrolled** students are students missing from the current roster. They are shown as "Not Enrolled" in place of a year level (e.g. BSIT-Not Enrolled).
-  - Students from an earlier roster are found by the search.
-  - Staff add anyone else with the **Add Student** button on the request form. Its Year Level is fixed to "Not Enrolled".
+  - Staff enter them with the **Add Student** button on the request form; they are not in the search. Its Year Level is fixed to "Not Enrolled".
+  - Adding someone with the **Alumni** button who was saved as Not Enrolled turns that record into an alumni record.
   - A not-enrolled student is not listed on the Enrolled Students page. If a later roster includes them, they become enrolled again.
   - Graduates from an earlier roster also appear as Not Enrolled; use **Alumni** for graduates.
 
@@ -186,12 +187,13 @@ The sign device never logs in. Two conditions must both hold, and the server enf
 
 ## 8. Students Page (Admin)
 
-- Title: **Enrolled Students**, with the total number of students shown above the table.
-- **Filters:** Program (abbreviations) and search by name or student number.
+- A list selector shows **Enrolled** (default), **Alumni** or **Not Enrolled** students. Alumni and Not Enrolled are where the records added from the request form, and students missing from the latest roster, can be viewed.
+- The title follows the list (e.g. **Enrolled Students**), with the total shown above the table.
+- **Filters:** Program (abbreviations) and search by name or student number, for every list.
 - **Columns:** Student #, Name, Program (abbreviated), Year, **BU Email**, **Contact Number**, Action (Remove).
 - **Buttons:** Add Student, Import CSV/XLSX.
-- The list is paginated (50 per page). Alumni and inactive students are not listed.
-- A student with existing transactions cannot be removed.
+- The list is paginated (50 per page).
+- **Remove** is offered only in the Enrolled list. A student with existing transactions cannot be removed.
 
 ---
 

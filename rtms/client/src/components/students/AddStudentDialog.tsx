@@ -77,7 +77,7 @@ export function AddStudentDialog({ open, mode = 'student', onClose, onCreated }:
       if (contactNumber.trim()) payload.contactNumber = contactNumber.trim();
       const { data } = await api.post('/students', payload);
       onCreated(data);
-      toast.success(isAlumni ? 'Alumni added' : 'Student added', { description: `${firstName} ${lastName}` });
+      toast.success(isAlumni ? 'Alumni saved' : 'Student saved', { description: `${firstName} ${lastName}` });
       reset();
       onClose();
     } catch (err: any) {
