@@ -236,7 +236,7 @@ The sign device has **no login of its own**. Every sign device endpoint (`device
 1. **Device lock** — the request carries the `X-Sign-Device` header of the device holding the `SignDeviceLock` row, otherwise `423 not_claimed`.
 2. **Live staff session** — `isStaffActive()`, otherwise `503 no_active_staff`.
 
-The lock itself: the sign device page creates a random device ID on first open and keeps it in `localStorage`. `POST /api/signing/device/claim` grants the lock when no device holds it, when this device already holds it, or when the holder hasn't been seen for 60 s (`LOCK_STALE_MS`); otherwise `423 locked`. The claim uses a conditional `updateMany` followed by `createMany({ skipDuplicates: true })`, so two devices claiming at the same moment cannot both win. The guard refreshes `lastSeenAt` at most every 10 s. Staff or admin can free it with **Reset Sign Device** (`DELETE /api/signing/device/lock`, login required).
+The lock itself: the sign device page creates a random device ID on first open and keeps it in `localStorage`. `POST /api/signing/device/claim` grants the lock only when no device holds it (first use, or after a reset) or when this device already holds it; otherwise `423 locked`. A holder that goes quiet keeps the lock, so another device can never take over on its own. The claim uses an `updateMany` matching this device followed by `createMany({ skipDuplicates: true })`, so two devices claiming an empty slot at the same moment cannot both win. When the registered device comes back after more than `LOCK_STALE_MS` of silence, the signing it left open is ended. The guard refreshes `lastSeenAt` at most every 10 s. Staff or admin can free it with **Reset Sign Device** (`DELETE /api/signing/device/lock`, login required).
 
 Because the lock goes to whichever device claims it first, someone who opens the page before the real one can take it; Reset Sign Device is the recovery.
 
@@ -355,7 +355,7 @@ The timing values are constants in `signing.routes.ts`:
 | Constant | Value | Meaning |
 |---|---|---|
 | `SESSION_TIMEOUT_MS` | 10 min | Session lifetime, pending or signed-but-unconfirmed |
-| `LOCK_STALE_MS` | 60 s | How long before another device can take over the sign device |
+| `LOCK_STALE_MS` | 60 s | How long the registered device may be away before, on returning, it ends the signing it left open. The lock itself is only freed by Reset Sign Device. |
 | `LOCK_TOUCH_MS` | 10 s | Throttle on lock heartbeat writes |
 | `STAFF_ACTIVE_MS` | 3 min | How recent a staff member's last request must be |
 | `STAFF_CHECK_CACHE_MS` | 10 s | Cache on the staff-active lookup |

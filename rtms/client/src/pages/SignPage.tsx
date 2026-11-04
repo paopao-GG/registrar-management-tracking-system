@@ -525,11 +525,11 @@ export function SignPage() {
     return (
       <StatusScreen icon={<Lock className="h-8 w-8" />} tone="warning" title="Device Already in Use">
         <p className="text-muted-foreground">
-          The RTAMS signature page is already open on another device.
+          The RTAMS signature page is registered to another device.
         </p>
         <p className="text-sm text-muted-foreground">
-          Close it there, or ask Registrar staff to reset the
-          sign device from their dashboard.
+          To use this one, ask Registrar staff to press Reset Sign
+          Device on their dashboard.
         </p>
       </StatusScreen>
     );

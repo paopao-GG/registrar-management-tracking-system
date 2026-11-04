@@ -91,6 +91,8 @@ Design details are in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
 
 - Shows the documents to claim (a pop-up for two or more) and "Authorized Representative" when it applies
 - Data Privacy notice fits a phone held sideways without scrolling
+- Adapts to any screen: phones upright or sideways, tablets, laptops and monitors
+- The registered sign device keeps the sign page until Reset Sign Device is pressed; another device no longer takes over after a minute of silence
 
 # students
 

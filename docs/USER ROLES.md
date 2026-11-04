@@ -179,7 +179,7 @@ A button at the top of the dashboard frees the sign-device lock so the sign page
 
 The sign device never logs in. Two conditions must both hold, and the server enforces both, so the page cannot be bypassed by calling the API directly.
 
-- **One device only.** The first device to open the sign page registers itself as the sign device. Another device opening the same URL shows "Device Already in Use". Refreshing or reconnecting on the registered device keeps it. If that device is closed for about a minute another may take over, or staff and admin can press **Reset Sign Device** on their dashboard, for example when the device is replaced or its browser data was cleared.
+- **One device only.** The first device to open the sign page registers itself as the sign device. Another device opening the same URL shows "Device Already in Use". Refreshing or reconnecting on the registered device keeps it. It **stays registered**, even if it sleeps, is closed or loses its connection, until staff or admin press **Reset Sign Device** on their dashboard, for example when the device is replaced or its browser data was cleared. After a reset, the next device to open the sign page registers itself.
 - **A Staff member must be signed in.** While no staff member is working in RTAMS the page shows "Signature Pad Inactive — Staff login required", and it returns to the waiting screen within a few seconds of a staff member signing in. Staff stay counted as working while their dashboard is open, and logging out makes the sign device inactive right away.
 - **Admin does not activate it.** An admin cannot release documents, so an admin session alone leaves the page inactive.
 

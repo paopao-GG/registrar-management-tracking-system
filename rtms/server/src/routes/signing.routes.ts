@@ -15,12 +15,16 @@ const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
  * every LOCK_TOUCH_MS while the sign page polls, so silence this long means
  * nobody is holding it: an internet drop looks exactly like this from here.
  *
- * Deliberately longer than LOCK_STALE_MS, so a brief drop hands the lock on
- * without also throwing away a signature the claimant is midway through.
+ * Deliberately longer than LOCK_STALE_MS, so a brief drop does not throw
+ * away a signature the claimant is midway through.
  */
 const SESSION_ABANDONED_MS = 2 * 60 * 1000;
 
-// A sign device that stops polling for this long loses its lock.
+/*
+ * The lock never passes to another device on its own: only Reset Sign
+ * Device frees it. A registered device that comes back after being silent
+ * this long ends the signing it left open (see the claim route).
+ */
 const LOCK_STALE_MS = 60 * 1000;
 // Throttle lock heartbeat writes; the sign device polls every 500 ms.
 const LOCK_TOUCH_MS = 10 * 1000;
@@ -476,8 +480,10 @@ export async function signingRoutes(app: FastifyInstance) {
    * SIGN DEVICE:
    * Claim the sign device slot for this device.
    *
-   * Succeeds when no device holds the lock, when this device
-   * already holds it, or when the holder stopped polling.
+   * Succeeds when no device holds the lock (first use, or after a
+   * Reset Sign Device) or when this device already holds it. A holder
+   * that has gone quiet keeps the lock, so another device cannot take
+   * over the sign page without staff resetting it.
    */
   app.post(
     '/api/signing/device/claim',
@@ -504,24 +510,20 @@ export async function signingRoutes(app: FastifyInstance) {
       const taken = await prisma.signDeviceLock.updateMany({
         where: {
           id: LOCK_ID,
-          OR: [
-            { deviceId },
-            { lastSeenAt: { lt: staleBefore } },
-          ],
+          deviceId,
         },
         data: {
-          deviceId,
           lastSeenAt: new Date(),
         },
       });
 
       if (taken.count > 0) {
         /*
-         * A lock that had gone quiet means the device holding it left
-         * mid-signing. End what it had open rather than hand the next
-         * device straight into a stranger's signature screen. Re-claiming
-         * a lock still being refreshed is an ordinary reconnect and
-         * leaves the session alone.
+         * The registered device returning after a long silence left any
+         * signing it had open unattended. End it rather than drop the
+         * page straight back into a signature screen nobody is at.
+         * Re-claiming a lock still being refreshed is an ordinary
+         * reconnect and leaves the session alone.
          */
         if (!previous || previous.lastSeenAt < staleBefore) {
           await endSessionsForLostDevice(previous);
@@ -548,7 +550,7 @@ export async function signingRoutes(app: FastifyInstance) {
       }
 
       return reply.status(423).send({
-        error: 'The signing page is already open on another device.',
+        error: 'The signing page is registered to another device. Reset Sign Device to use this one.',
         reason: 'locked',
       });
     }

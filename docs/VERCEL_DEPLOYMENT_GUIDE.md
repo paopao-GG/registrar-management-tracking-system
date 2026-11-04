@@ -262,7 +262,7 @@ No staff member is signed in to RTAMS. Log in as staff on the office PC and leav
 
 ### The sign device says "Device Already in Use"
 
-The sign page is open on another device, or the device's browser data was cleared. Close the other page and wait about a minute, or click **Reset Sign Device** on the staff or admin dashboard.
+The sign page is registered to another device, or this device's browser data was cleared. The registration stays until someone clicks **Reset Sign Device** on the staff or admin dashboard; after that, the next device to open `/sign` registers itself.
 
 ### Cold start is slow (3–5 seconds on first request)
 
