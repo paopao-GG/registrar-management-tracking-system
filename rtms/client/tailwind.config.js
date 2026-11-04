@@ -6,6 +6,10 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      screens: {
+        // A phone held sideways: wide but short. Tablets and computers are taller.
+        short: { raw: "(orientation: landscape) and (max-height: 540px)" },
+      },
       fontFamily: {
         sans: ['"Public Sans Variable"', "system-ui", "-apple-system", "sans-serif"],
         display: ['"Fraunces Variable"', "Georgia", "serif"],

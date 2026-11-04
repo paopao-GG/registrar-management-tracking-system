@@ -609,27 +609,29 @@ export function SignPage() {
   if (!consent) {
     /*
      * Sideways, the claimant sits on the left and the notice with
-     * I Agree on the right, so a phone needs no scrolling.
+     * I Agree on the right. `landscape:` sets that layout on any wide
+     * screen; `short:` (a phone held sideways) also tightens it so
+     * I Agree is visible without scrolling.
      */
     return (
-      <div className="paper-texture flex min-h-[100dvh] items-center justify-center p-4 sm:p-6 landscape:p-3">
-        <div className="w-full max-w-lg space-y-6 rounded-xl border border-border/80 bg-card p-6 text-center shadow-lift animate-fade-up sm:p-8 landscape:grid landscape:max-w-3xl landscape:grid-cols-2 landscape:gap-5 landscape:space-y-0 landscape:p-5 landscape:text-left">
+      <div className="paper-texture flex min-h-[100dvh] items-center justify-center p-4 sm:p-6 short:p-3">
+        <div className="w-full max-w-lg space-y-6 rounded-xl border border-border/80 bg-card p-6 text-center shadow-lift animate-fade-up sm:p-8 landscape:grid landscape:max-w-3xl landscape:grid-cols-2 landscape:gap-6 landscape:space-y-0 landscape:text-left lg:landscape:max-w-4xl lg:landscape:gap-8 short:gap-5 short:p-5">
           <div className="min-w-0">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-8 ring-primary/5 landscape:hidden">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-8 ring-primary/5 landscape:mx-0 short:hidden">
               <ShieldCheck className="h-7 w-7" />
             </div>
-            <p className="eyebrow landscape:flex landscape:items-center landscape:gap-1.5">
-              <ShieldCheck className="hidden h-4 w-4 text-primary landscape:inline" />
+            <p className="eyebrow short:flex short:items-center short:gap-1.5">
+              <ShieldCheck className="hidden h-4 w-4 text-primary short:inline" />
               RTAMS · Signature Required
             </p>
-            <ClaimantInfo session={session} className="mt-4 landscape:mt-2" />
+            <ClaimantInfo session={session} className="mt-4 short:mt-2" />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-6 landscape:gap-3">
+          <div className="flex min-w-0 flex-col gap-6 short:gap-3">
             {error && <ErrorBox message={error} />}
 
-            <div className="rounded-md border bg-muted/40 p-4 text-left text-sm leading-relaxed landscape:p-3 landscape:text-xs">
-              <p className="mb-2 font-medium landscape:mb-1 landscape:text-sm">Data Privacy Notice</p>
+            <div className="rounded-md border bg-muted/40 p-4 text-left text-sm leading-relaxed lg:text-base short:p-3 short:text-xs">
+              <p className="mb-2 font-medium short:mb-1 short:text-sm">Data Privacy Notice</p>
               I agree to the capture and storage of my signature
               as proof of document release, and I consent to the
               processing of my personal information in accordance
@@ -641,7 +643,7 @@ export function SignPage() {
               type="button"
               size="lg"
               onClick={() => setConsent(true)}
-              className="h-14 w-full text-base landscape:mt-auto landscape:h-12"
+              className="h-14 w-full text-base landscape:mt-auto short:h-12"
             >
               <Check className="h-5 w-5" />
               I Agree
@@ -655,50 +657,54 @@ export function SignPage() {
   /*
    * Active signing session, step 2: the pad. Upright phones get the
    * pad on top with the buttons below; sideways the pad takes the left
-   * and the claimant and buttons sit in a column on the right.
+   * and the claimant and buttons sit in a column on the right. On a
+   * large screen the whole layout is capped and centered, and an
+   * upright tablet gets a shorter pad instead of a towering strip.
    */
   return (
-    <div className="paper-texture flex h-[100dvh] flex-col gap-3 p-3 landscape:flex-row sm:p-4">
-      <ClaimantInfo session={session} compact className="shrink-0 landscape:hidden" />
+    <div className="paper-texture h-[100dvh] p-3 sm:p-4">
+      <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-3 landscape:flex-row sm:portrait:justify-center">
+        <ClaimantInfo session={session} compact className="shrink-0 landscape:hidden" />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border-2 border-dashed border-seal/50 bg-seal/5 p-2">
-        <p className="mb-1 text-xs text-muted-foreground">Please sign below</p>
-        {/* Keep the pad without a background color so the saved PNG stays transparent for the BUP logbook. */}
-        <div className="min-h-0 flex-1 rounded-md border bg-white">
-          <SignaturePadComponent ref={sigRef} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border-2 border-dashed border-seal/50 bg-seal/5 p-2 sm:portrait:max-h-[60vh]">
+          <p className="mb-1 text-xs text-muted-foreground">Please sign below</p>
+          {/* Keep the pad without a background color so the saved PNG stays transparent for the BUP logbook. */}
+          <div className="min-h-0 flex-1 rounded-md border bg-white">
+            <SignaturePadComponent ref={sigRef} />
+          </div>
         </div>
-      </div>
 
-      <div className="flex shrink-0 flex-col gap-2 landscape:w-44 landscape:justify-between">
-        <ClaimantInfo session={session} compact className="hidden landscape:block" />
+        <div className="flex shrink-0 flex-col gap-2 landscape:w-44 landscape:justify-between lg:landscape:w-60">
+          <ClaimantInfo session={session} compact className="hidden landscape:block" />
 
-        {error && <ErrorBox message={error} />}
+          {error && <ErrorBox message={error} />}
 
-        <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground landscape:hidden">
-          <RotateCw className="h-3.5 w-3.5" />
-          Turn your phone sideways for more room
-        </p>
+          <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground landscape:hidden sm:hidden">
+            <RotateCw className="h-3.5 w-3.5" />
+            Turn your phone sideways for more room
+          </p>
 
-        <div className="flex gap-2 landscape:flex-col">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={() => sigRef.current?.clear()}
-            className="h-14 flex-1 text-base landscape:flex-none"
-          >
-            <Eraser className="h-5 w-5" />
-            Clear
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            onClick={handleDone}
-            className="h-14 flex-[2] text-base landscape:flex-none"
-          >
-            <Check className="h-5 w-5" />
-            Done
-          </Button>
+          <div className="flex gap-2 landscape:flex-col">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => sigRef.current?.clear()}
+              className="h-14 flex-1 text-base landscape:flex-none short:h-12"
+            >
+              <Eraser className="h-5 w-5" />
+              Clear
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              onClick={handleDone}
+              className="h-14 flex-[2] text-base landscape:flex-none short:h-12"
+            >
+              <Check className="h-5 w-5" />
+              Done
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -720,7 +726,9 @@ function ClaimantInfo({
       <p
         className={cn(
           'font-display font-semibold break-words',
-          compact ? 'text-xl leading-tight' : 'text-3xl landscape:text-2xl'
+          compact
+            ? 'text-xl leading-tight lg:text-2xl'
+            : 'text-2xl sm:text-3xl short:text-2xl'
         )}
       >
         {session.releasedTo}
@@ -765,7 +773,7 @@ function DocumentsToClaim({
     if (compact || items.length === 0) return null;
 
     return (
-      <div className="mt-4 rounded-md border bg-muted/40 p-3 text-left text-sm landscape:mt-3">
+      <div className="mt-4 rounded-md border bg-muted/40 p-3 text-left text-sm short:mt-3">
         <p className="font-medium">Documents to claim:</p>
         <p className="mt-1 text-muted-foreground">{itemLine(items[0])}</p>
       </div>
@@ -788,7 +796,7 @@ function DocumentsToClaim({
           type="button"
           variant="outline"
           onClick={() => setOpen(true)}
-          className="mt-4 w-full landscape:mt-3"
+          className="mt-4 w-full short:mt-3"
         >
           <FileText className="h-4 w-4" />
           View documents to claim ({items.length})
@@ -800,7 +808,7 @@ function DocumentsToClaim({
           <DialogHeader>
             <DialogTitle>Documents to claim:</DialogTitle>
           </DialogHeader>
-          <ul className="max-h-[60dvh] space-y-2 overflow-y-auto text-left text-sm text-muted-foreground">
+          <ul className="max-h-[50dvh] space-y-2 overflow-y-auto text-left text-sm text-muted-foreground short:max-h-[40dvh]">
             {items.map((item, i) => (
               <li key={i} className="border-b border-border/60 pb-2 last:border-0">
                 {itemLine(item)}
@@ -825,11 +833,11 @@ function StatusScreen({
   children: ReactNode;
 }) {
   return (
-    <div className="paper-texture flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-xl space-y-4 text-center animate-fade-up">
+    <div className="paper-texture flex min-h-[100dvh] items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-xl space-y-3 text-center animate-fade-up sm:space-y-4">
         <div
           className={cn(
-            'mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full ring-8',
+            'mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full ring-8 sm:h-20 sm:w-20 short:mb-0 short:h-12 short:w-12 short:ring-4',
             tone === 'success' && 'bg-success/10 text-success ring-success/5',
             tone === 'warning' && 'bg-warning/10 text-warning ring-warning/5',
             tone === 'default' && 'bg-primary/10 text-primary ring-primary/5'
@@ -838,7 +846,7 @@ function StatusScreen({
           {icon}
         </div>
         <p className="eyebrow">RTAMS Signature</p>
-        <h1 className="font-display text-4xl font-semibold">{title}</h1>
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl short:text-2xl">{title}</h1>
         {children}
       </div>
     </div>
